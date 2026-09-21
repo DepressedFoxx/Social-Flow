@@ -1,0 +1,52 @@
+{
+  "name": "@social-flow/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "predev": "npm run db:generate",
+    "dev": "nest start --watch",
+    "prebuild": "npm run db:generate",
+    "build": "nest build",
+    "start": "node dist/main.js",
+    "lint": "eslint .",
+    "typecheck": "npm run db:generate && tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:validate": "prisma validate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.2.5",
+    "@nestjs/core": "^11.2.5",
+    "@nestjs/platform-express": "^11.2.5",
+    "@nestjs/config": "^4.0.0",
+    "@nestjs/swagger": "^11.0.0",
+    "@nestjs/jwt": "^11.0.0",
+    "@nestjs/passport": "^11.0.0",
+    "passport": "^0.7.0",
+    "passport-github2": "^0.1.12",
+    "@prisma/client": "^7.10.0",
+    "@prisma/adapter-pg": "^7.10.0",
+    "pg": "^8.0.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.0",
+    "zod": "^4.0.0",
+    "dotenv": "^17.0.0",
+    "helmet": "^8.0.0",
+    "cookie-parser": "^1.4.0",
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@aws-sdk/s3-request-presigner": "^3.0.0"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.0",
+    "@nestjs/testing": "^11.2.5",
+    "prisma": "^7.10.0",
+    "@types/express": "^5.0.0",
+    "@types/pg": "^8.0.0",
+    "@types/passport-github2": "^1.2.0",
+    "@types/cookie-parser": "^1.4.0"
+  }
+}

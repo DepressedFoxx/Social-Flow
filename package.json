@@ -1,0 +1,50 @@
+{
+  "name": "social-flow",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=24.14.0 <25",
+    "npm": ">=11.19.1"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n WEB,API -c cyan,green \"npm run dev:web\" \"npm run dev:api\"",
+    "dev:web": "npm run dev --workspace=@social-flow/web",
+    "dev:api": "npm run dev --workspace=@social-flow/api",
+    "build": "npm run build --workspaces",
+    "lint": "npm run lint --workspaces",
+    "typecheck": "npm run typecheck --workspaces",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "env:setup": "node scripts/setup-env.mjs",
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down",
+    "db:generate": "npm run db:generate --workspace=@social-flow/api",
+    "db:migrate": "npm run db:migrate --workspace=@social-flow/api --",
+    "db:deploy": "npm run db:deploy --workspace=@social-flow/api",
+    "db:studio": "npm run db:studio --workspace=@social-flow/api",
+    "test": "npm run test --workspace=@social-flow/web",
+    "test:e2e": "playwright test",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.0",
+    "@types/node": "^24.0.0",
+    "concurrently": "^9.2.0",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.0",
+    "globals": "^16.0.0",
+    "prettier": "^3.6.0",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.0.0",
+    "@eslint/js": "^9.39.5"
+  },
+  "overrides": {
+    "multer": "2.4.0",
+    "deepmerge-ts": "8.0.2",
+    "mysql2": "3.24.4"
+  },
+  "packageManager": "npm@11.19.1"
+}

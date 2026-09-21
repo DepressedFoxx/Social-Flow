@@ -1,0 +1,47 @@
+{
+  "name": "@social-flow/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3000",
+    "build": "next build",
+    "start": "next start --port 3000",
+    "lint": "eslint .",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "next": "^16.3.5",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "@tanstack/react-query": "^5.0.0",
+    "@tanstack/react-query-devtools": "^5.0.0",
+    "@tanstack/react-table": "^8.0.0",
+    "react-hook-form": "^7.0.0",
+    "@hookform/resolvers": "^5.0.0",
+    "zod": "^4.0.0",
+    "@dnd-kit/core": "^6.3.0",
+    "date-fns": "^4.0.0",
+    "@fontsource/be-vietnam-pro": "^5.2.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.0",
+    "tailwind-merge": "^3.0.0",
+    "lucide-react": "^0.577.0",
+    "@radix-ui/react-slot": "^1.2.0",
+    "sonner": "^2.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.0.0",
+    "tailwindcss": "^4.0.0",
+    "tw-animate-css": "^1.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint-config-next": "^16.3.5",
+    "vitest": "^4.0.0",
+    "@testing-library/react": "^16.0.0",
+    "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/user-event": "^14.0.0",
+    "jsdom": "^27.0.0"
+  },
+  "type": "module"
+}
