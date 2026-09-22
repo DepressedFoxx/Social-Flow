@@ -3,7 +3,14 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { FileText, LayoutDashboard, Menu, PanelLeftClose, Sparkles } from 'lucide-react';
+import {
+  FileText,
+  Images,
+  LayoutDashboard,
+  Menu,
+  PanelLeftClose,
+  Sparkles,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LogoutButton } from '@/features/auth/logout-button';
 import type { AuthSession } from '@/features/auth/types';
@@ -12,6 +19,7 @@ import { cn } from '@/lib/utils';
 const navigation = [
   { href: '/dashboard', label: 'Tổng quan', icon: LayoutDashboard },
   { href: '/posts', label: 'Bài viết', icon: FileText },
+  { href: '/media', label: 'Thư viện media', icon: Images },
 ] as const;
 
 function pageTitle(pathname: string) {
@@ -19,6 +27,7 @@ function pageTitle(pathname: string) {
   if (pathname === '/posts/new') return 'Tạo bài viết';
   if (pathname.startsWith('/posts/')) return 'Chi tiết bài viết';
   if (pathname.startsWith('/posts')) return 'Bài viết';
+  if (pathname.startsWith('/media')) return 'Thư viện media';
   return 'SocialFlow';
 }
 

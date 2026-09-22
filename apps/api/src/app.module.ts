@@ -6,6 +6,7 @@ import { PrismaModule } from './database/prisma.module';
 import { HealthModule } from './modules/health/health.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { PostsModule } from './modules/posts/posts.module';
+import { MediaModule } from './modules/media/media.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnvironment }),
@@ -14,6 +15,7 @@ import { PostsModule } from './modules/posts/posts.module';
     AuthModule,
     DashboardModule,
     PostsModule,
+    MediaModule,
   ],
 })
 export class AppModule {}

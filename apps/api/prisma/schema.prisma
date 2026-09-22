@@ -26,10 +26,13 @@ model Workspace {
   owner     User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   name      String
   timezone  String    @default("Asia/Ho_Chi_Minh")
+  planCode  String    @default("PERSONAL")
+  mediaQuotaBytes BigInt @default(262144000)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   channels  Channel[]
   posts     Post[]
+  media     MediaAsset[]
 }
 
 enum Platform {
@@ -73,11 +76,48 @@ model Post {
   version         Int        @default(1)
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
+  media           PostMedia[]
 
   @@unique([workspaceId, clientRequestId])
   @@index([workspaceId, status])
   @@index([workspaceId, scheduledAt])
   @@index([channelId])
+}
+
+enum MediaStatus {
+  PENDING
+  UPLOADED
+  READY
+}
+
+model MediaAsset {
+  id              String      @id @default(cuid())
+  workspaceId     String
+  workspace       Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  filename        String
+  mimeType        String
+  size            Int
+  storageKey      String      @unique
+  status          MediaStatus @default(PENDING)
+  uploadTokenHash String?
+  uploadExpiresAt DateTime?
+  confirmedAt     DateTime?
+  createdAt       DateTime    @default(now())
+  postMedia       PostMedia?
+
+  @@index([workspaceId, status])
+  @@index([createdAt])
+}
+
+model PostMedia {
+  postId       String
+  post         Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  mediaAssetId String     @unique
+  mediaAsset   MediaAsset @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  position     Int
+
+  @@id([postId, mediaAssetId])
+  @@unique([postId, position])
 }
 
 model Session {

@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -23,6 +24,7 @@ import { sessionKey, type AuthSession } from '@/features/auth/types';
 import { dashboardKey } from '@/features/dashboard/types';
 import { ApiError, apiGet, apiRequest } from '@/lib/api-client';
 import { surfaceVariants } from '@/styles/variants';
+import { existingMedia, MediaUploader, type EditorMedia } from './media-uploader';
 import { postsKey, type PostItem } from './types';
 
 const schema = z.object({
@@ -47,6 +49,8 @@ export function PostEditor({
   const client = useQueryClient();
   const [clientRequestId] = useState(() => crypto.randomUUID());
   const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const [mediaOverride, setMediaOverride] = useState<EditorMedia[] | null>(null);
+  const [mediaDirty, setMediaDirty] = useState(false);
   const detail = useQuery({
     queryKey: [...postsKey, 'detail', postId],
     queryFn: ({ signal }) => apiGet<PostItem>('/posts/' + postId, signal),
@@ -73,14 +77,27 @@ export function PostEditor({
     });
   }, [detail.data, reset]);
 
+  const media = mediaOverride ?? existingMedia(detail.data?.media ?? []);
+
+  const changeMedia: Dispatch<SetStateAction<EditorMedia[]>> = (next) => {
+    setMediaOverride((current) => {
+      const value = current ?? existingMedia(detail.data?.media ?? []);
+      return typeof next === 'function' ? next(value) : next;
+    });
+    setMediaDirty(true);
+  };
+
+  const dirty = isDirty || mediaDirty;
+  const mediaPending = media.some((item) => item.status !== 'success');
+
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
-      if (!isDirty) return;
+      if (!dirty) return;
       event.preventDefault();
     };
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
-  }, [isDirty]);
+  }, [dirty]);
 
   const save = useMutation({
     mutationFn: async (values: Fields) => {
@@ -96,17 +113,27 @@ export function PostEditor({
         return apiRequest<PostItem>('/posts/' + postId, {
           ...common,
           method: 'PATCH',
-          body: JSON.stringify({ ...values, expectedVersion: detail.data.version }),
+          body: JSON.stringify({
+            ...values,
+            mediaAssetIds: media.map((item) => item.id),
+            expectedVersion: detail.data.version,
+          }),
         });
       }
       return apiRequest<PostItem>('/posts', {
         ...common,
         method: 'POST',
-        body: JSON.stringify({ ...values, clientRequestId }),
+        body: JSON.stringify({
+          ...values,
+          mediaAssetIds: media.map((item) => item.id),
+          clientRequestId,
+        }),
       });
     },
     onSuccess: async (post) => {
       reset({ title: post.title, content: post.content, channelId: post.channel.id });
+      setMediaOverride(existingMedia(post.media));
+      setMediaDirty(false);
       setSavedAt(new Date());
       client.setQueryData([...postsKey, 'detail', post.id], post);
       await Promise.all([
@@ -157,7 +184,7 @@ export function PostEditor({
           href="/posts"
           className={buttonVariants({ variant: 'ghost', size: 'sm' })}
           onClick={(event) => {
-            if (isDirty && !window.confirm('Bạn có thay đổi chưa lưu. Rời khỏi trang?'))
+            if (dirty && !window.confirm('Bạn có thay đổi chưa lưu. Rời khỏi trang?'))
               event.preventDefault();
           }}
         >
@@ -277,6 +304,11 @@ export function PostEditor({
                   Bản nháp có thể để trống nội dung.
                 </p>
               </div>
+              <MediaUploader
+                value={media}
+                onChange={changeMedia}
+                disabled={!editable || save.isPending}
+              />
             </div>
           </section>
 
@@ -300,6 +332,22 @@ export function PostEditor({
                 <p className="mt-4 whitespace-pre-wrap wrap-break-word text-sm leading-relaxed text-foreground">
                   {content || 'Nội dung bài viết sẽ hiển thị tại đây.'}
                 </p>
+                {media.length > 0 && (
+                  <div className="mt-4 grid grid-cols-2 gap-1 overflow-hidden rounded-lg">
+                    {media.map((item, index) => (
+                      <div key={item.localId} className="relative aspect-square bg-muted">
+                        <Image
+                          src={item.previewUrl}
+                          alt={`Xem trước ảnh ${index + 1}`}
+                          fill
+                          sizes="11rem"
+                          className="object-cover"
+                          unoptimized
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </section>
             <section className={surfaceVariants()}>
@@ -320,7 +368,7 @@ export function PostEditor({
               <Button
                 type="submit"
                 className="mt-5 w-full"
-                disabled={!editable || save.isPending || !isDirty}
+                disabled={!editable || save.isPending || !dirty || mediaPending}
               >
                 {save.isPending ? (
                   <LoaderCircle
@@ -332,6 +380,11 @@ export function PostEditor({
                 )}
                 {save.isPending ? 'Đang lưu…' : postId ? 'Lưu thay đổi' : 'Lưu bản nháp'}
               </Button>
+              {mediaPending && (
+                <p className="mt-3 text-xs text-warning" role="status">
+                  Hãy đợi ảnh upload xong hoặc xóa ảnh bị lỗi trước khi lưu.
+                </p>
+              )}
             </section>
           </aside>
         </div>

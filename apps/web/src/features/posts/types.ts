@@ -16,6 +16,16 @@ export type PostItem = {
     platform: 'FACEBOOK' | 'INSTAGRAM';
     isMock: boolean;
   };
+  media: PostMedia[];
+};
+
+export type PostMedia = {
+  id: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  position: number;
+  contentPath: string;
 };
 
 export type PostListData = {

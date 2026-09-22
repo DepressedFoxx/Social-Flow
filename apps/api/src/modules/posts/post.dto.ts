@@ -1,5 +1,8 @@
 import { Transform } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayUnique,
+  IsArray,
   IsIn,
   IsInt,
   IsOptional,
@@ -77,6 +80,12 @@ export class CreatePostDto {
 
   @IsUUID()
   clientRequestId!: string;
+
+  @IsArray()
+  @ArrayMaxSize(4)
+  @ArrayUnique()
+  @IsString({ each: true })
+  mediaAssetIds: string[] = [];
 }
 
 export class UpdatePostDto {
@@ -101,4 +110,11 @@ export class UpdatePostDto {
   @MinLength(1)
   @MaxLength(100)
   channelId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(4)
+  @ArrayUnique()
+  @IsString({ each: true })
+  mediaAssetIds?: string[];
 }

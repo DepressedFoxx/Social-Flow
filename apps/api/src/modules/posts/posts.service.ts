@@ -6,11 +6,38 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import type { Prisma } from '../../generated/prisma/client';
+import { MediaService } from '../media/media.service';
 import type { CreatePostDto, ListPostsDto, UpdatePostDto } from './post.dto';
+
+const postSelect = {
+  id: true,
+  title: true,
+  content: true,
+  status: true,
+  scheduledAt: true,
+  publishedAt: true,
+  version: true,
+  createdAt: true,
+  updatedAt: true,
+  channel: { select: { id: true, name: true, platform: true, isMock: true } },
+  media: {
+    orderBy: { position: 'asc' as const },
+    select: {
+      position: true,
+      mediaAsset: {
+        select: { id: true, filename: true, mimeType: true, size: true },
+      },
+    },
+  },
+} as const;
+type SelectedPost = Prisma.PostGetPayload<{ select: typeof postSelect }>;
 
 @Injectable()
 export class PostsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mediaService: MediaService,
+  ) {}
 
   private channel(workspaceId: string, channelId: string) {
     return this.prisma.channel.findFirst({ where: { id: channelId, workspaceId } });
@@ -33,18 +60,37 @@ export class PostsService {
   }
 
   private select() {
+    return postSelect;
+  }
+
+  private present(post: SelectedPost) {
     return {
-      id: true,
-      title: true,
-      content: true,
-      status: true,
-      scheduledAt: true,
-      publishedAt: true,
-      version: true,
-      createdAt: true,
-      updatedAt: true,
-      channel: { select: { id: true, name: true, platform: true, isMock: true } },
-    } as const;
+      ...post,
+      media: post.media.map(({ position, mediaAsset }) => ({
+        ...this.mediaService.publicAsset(mediaAsset),
+        position,
+      })),
+    };
+  }
+
+  private async assertMedia(
+    workspaceId: string,
+    mediaAssetIds: string[],
+    postId?: string,
+  ) {
+    const assets = await this.prisma.mediaAsset.findMany({
+      where: { id: { in: mediaAssetIds }, workspaceId, status: 'READY' },
+      include: { postMedia: true },
+    });
+    if (
+      assets.length !== mediaAssetIds.length ||
+      assets.some((asset) => asset.postMedia && asset.postMedia.postId !== postId)
+    )
+      throw new BadRequestException({
+        code: 'INVALID_MEDIA',
+        message: 'Một hoặc nhiều ảnh chưa sẵn sàng hoặc không thuộc workspace.',
+        fieldErrors: { mediaAssetIds: 'Hãy upload lại ảnh không hợp lệ.' },
+      });
   }
 
   async list(workspaceId: string, query: ListPostsDto) {
@@ -75,7 +121,12 @@ export class PostsService {
         select: this.select(),
       }),
     ]);
-    return { items, page: query.page, pageSize: query.pageSize, total };
+    return {
+      items: items.map((post) => this.present(post)),
+      page: query.page,
+      pageSize: query.pageSize,
+      total,
+    };
   }
 
   async get(workspaceId: string, id: string) {
@@ -84,12 +135,24 @@ export class PostsService {
       select: this.select(),
     });
     if (!post) throw this.notFound();
-    return post;
+    return this.present(post);
   }
 
   async create(workspaceId: string, dto: CreatePostDto) {
     await this.assertChannel(workspaceId, dto.channelId);
-    return this.prisma.post.upsert({
+    const existing = await this.prisma.post.findUnique({
+      where: {
+        workspaceId_clientRequestId: {
+          workspaceId,
+          clientRequestId: dto.clientRequestId,
+        },
+      },
+      select: this.select(),
+    });
+    if (existing) return this.present(existing);
+    await this.assertMedia(workspaceId, dto.mediaAssetIds);
+    const { mediaAssetIds, ...data } = dto;
+    const post = await this.prisma.post.upsert({
       where: {
         workspaceId_clientRequestId: {
           workspaceId,
@@ -97,28 +160,57 @@ export class PostsService {
         },
       },
       update: {},
-      create: { workspaceId, ...dto },
+      create: {
+        workspaceId,
+        ...data,
+        media: {
+          create: mediaAssetIds.map((mediaAssetId, position) => ({
+            position,
+            mediaAsset: { connect: { id: mediaAssetId } },
+          })),
+        },
+      },
       select: this.select(),
     });
+    return this.present(post);
   }
 
   async update(workspaceId: string, id: string, dto: UpdatePostDto) {
     if (dto.channelId) await this.assertChannel(workspaceId, dto.channelId);
-    const { expectedVersion } = dto;
+    if (dto.mediaAssetIds) await this.assertMedia(workspaceId, dto.mediaAssetIds, id);
+    const { expectedVersion, mediaAssetIds } = dto;
     const data: { title?: string; content?: string; channelId?: string } = {};
     if (dto.title !== undefined) data.title = dto.title;
     if (dto.content !== undefined) data.content = dto.content;
     if (dto.channelId !== undefined) data.channelId = dto.channelId;
-    if (Object.keys(data).length === 0)
+    if (Object.keys(data).length === 0 && mediaAssetIds === undefined)
       throw new BadRequestException({
         code: 'POST_CHANGES_REQUIRED',
         message: 'Cần có ít nhất một nội dung thay đổi.',
       });
-    const updated = await this.prisma.post.updateMany({
-      where: { id, workspaceId, version: expectedVersion, status: 'DRAFT' },
-      data: { ...data, version: { increment: 1 } },
+    const post = await this.prisma.$transaction(async (transaction) => {
+      const updated = await transaction.post.updateMany({
+        where: { id, workspaceId, version: expectedVersion, status: 'DRAFT' },
+        data: { ...data, version: { increment: 1 } },
+      });
+      if (updated.count !== 1) return null;
+      if (mediaAssetIds !== undefined) {
+        await transaction.postMedia.deleteMany({ where: { postId: id } });
+        if (mediaAssetIds.length)
+          await transaction.postMedia.createMany({
+            data: mediaAssetIds.map((mediaAssetId, position) => ({
+              postId: id,
+              mediaAssetId,
+              position,
+            })),
+          });
+      }
+      return transaction.post.findFirst({
+        where: { id, workspaceId },
+        select: postSelect,
+      });
     });
-    if (updated.count === 1) return this.get(workspaceId, id);
+    if (post) return this.present(post);
     const current = await this.prisma.post.findFirst({ where: { id, workspaceId } });
     if (!current) throw this.notFound();
     throw new ConflictException({

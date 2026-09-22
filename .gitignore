@@ -14,3 +14,7 @@ apps/api/src/generated/
 
 # Isolated E2E Next.js output
 apps/web/.next-e2e/
+
+# Local media storage
+.data/
+**/.data/

@@ -17,6 +17,8 @@ const schema = z.object({
   GOOGLE_CLIENT_ID: z.string().default(''),
   GOOGLE_CLIENT_SECRET: z.string().default(''),
   GOOGLE_CALLBACK_URL: z.url().default('http://localhost:4000/api/auth/google/callback'),
+  MEDIA_STORAGE_PATH: z.string().min(1).default('.data/media'),
+  MEDIA_UPLOAD_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(600),
 });
 export function validateEnvironment(config: Record<string, unknown>) {
   return schema.parse(config);

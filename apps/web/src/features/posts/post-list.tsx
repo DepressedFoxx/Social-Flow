@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -44,7 +45,7 @@ import {
 } from '@/components/ui/table';
 import { sessionKey, type AuthSession } from '@/features/auth/types';
 import { dashboardKey } from '@/features/dashboard/types';
-import { ApiError, apiGet, apiRequest } from '@/lib/api-client';
+import { API_URL, ApiError, apiGet, apiRequest } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { surfaceVariants } from '@/styles/variants';
 import { postsKey, type PostFilters, type PostItem, type PostListData } from './types';
@@ -353,9 +354,20 @@ export function PostList({
                   <TableRow key={post.id}>
                     <TableCell className="max-w-xs px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                          <ImageIcon aria-hidden="true" />
-                        </span>
+                        {post.media[0] ? (
+                          <Image
+                            src={`${API_URL}${post.media[0].contentPath}?v=${encodeURIComponent(post.updatedAt)}`}
+                            alt={`Ảnh đại diện ${post.title}`}
+                            width={40}
+                            height={40}
+                            className="size-10 shrink-0 rounded-lg object-cover"
+                            unoptimized
+                          />
+                        ) : (
+                          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                            <ImageIcon aria-hidden="true" />
+                          </span>
+                        )}
                         <Link
                           href={`/posts/${post.id}`}
                           className="truncate font-medium hover:text-primary hover:underline"
@@ -407,16 +419,32 @@ export function PostList({
             {posts.data.items.map((post) => (
               <li key={post.id} className={surfaceVariants({ padding: 'sm' })}>
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <Link
-                      href={`/posts/${post.id}`}
-                      className="block truncate font-medium hover:text-primary"
-                    >
-                      {post.title}
-                    </Link>
-                    <p className="mt-1 truncate text-xs text-muted-foreground">
-                      {post.channel.name}
-                    </p>
+                  <div className="flex min-w-0 items-center gap-3">
+                    {post.media[0] ? (
+                      <Image
+                        src={`${API_URL}${post.media[0].contentPath}?v=${encodeURIComponent(post.updatedAt)}`}
+                        alt={`Ảnh đại diện ${post.title}`}
+                        width={48}
+                        height={48}
+                        className="size-12 shrink-0 rounded-lg object-cover"
+                        unoptimized
+                      />
+                    ) : (
+                      <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                        <ImageIcon aria-hidden="true" />
+                      </span>
+                    )}
+                    <div className="min-w-0">
+                      <Link
+                        href={`/posts/${post.id}`}
+                        className="block truncate font-medium hover:text-primary"
+                      >
+                        {post.title}
+                      </Link>
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                        {post.channel.name}
+                      </p>
+                    </div>
                   </div>
                   <StatusBadge status={post.status} />
                 </div>
