@@ -11,6 +11,7 @@ import { Providers } from '@/components/providers';
 export const metadata: Metadata = {
   title: 'SocialFlow',
   description: 'Không gian quản lý và lên lịch nội dung.',
+  icons: { icon: '/icon.svg' },
 };
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (

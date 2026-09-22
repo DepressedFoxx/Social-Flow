@@ -29,7 +29,7 @@ npm run dev
 Khi thay đổi schema và cần tạo migration mới: `npm run db:migrate --workspace=@social-flow/api -- --name init`.
 `env:setup` không ghi đè file .env đã tồn tại. Docker lưu dữ liệu trong named volume; `db:down` giữ nguyên dữ liệu.
 
-- Web: http://localhost:3001
+- Web: http://localhost:3000
 - API liveness: http://localhost:4000/api/health (chỉ kiểm tra server)
 - API readiness: http://localhost:4000/api/health/ready (kiểm tra PostgreSQL, trả 503 khi không kết nối được)
 - Swagger: http://localhost:4000/api/docs (chỉ ngoài production)
@@ -66,15 +66,16 @@ Mở `social-flow.code-workspace` trong VS Code để thấy Frontend/Backend ri
 | npm run db:generate             | Sinh Prisma client                              |
 | npm run db:studio               | Xem database                                    |
 | npx playwright install chromium | Tải browser phục vụ E2E                         |
-| npm run test:e2e                | Test sau khi đã build; cần port 3017/4000 trống |
+| npm run test:e2e                | Test sau khi đã build; cần port 3017/4018 trống |
 
 ## Quyết định kiến trúc
 
 - Next.js chỉ phụ trách FE; nghiệp vụ/API được chuyển sang NestJS theo yêu cầu tách workspace.
-- Auth sẽ do BE quản lý bằng OAuth/session; đã chuẩn bị Passport/GitHub/JWT, chưa triển khai login. Không cấu hình Auth.js song song ở FE.
+- Auth do BE quản lý: email/mật khẩu và Google OAuth, dùng session cookie HttpOnly. Xem [hướng dẫn đăng nhập](docs/AUTHENTICATION.md).
 - Đã cài SDK S3, form, calendar drag-and-drop và testing để xây tiếp; chưa kết nối dịch vụ ngoài.
-- Schema Workspace hiện chỉ là khởi điểm; chưa có auth/ownership hoặc API CRUD công khai. Phải thêm ownership trước khi triển khai CRUD.
-- Chưa triển khai publisher/worker, social API, quản lý bài viết hoặc lịch đăng.
+- User sở hữu workspace; API lấy quyền truy cập từ phiên. Tạo tài khoản kèm hai kênh mock trong transaction.
+- Đã có CRUD bản nháp, danh sách search/filter/sort/phân trang và chống ghi đè bằng version.
+- Chưa triển khai media, lịch đăng, publisher/worker hoặc social API thật.
 - Prisma client được sinh tự động trước dev/build/typecheck, không commit generated code.
 - File .env.example chỉ chứa cấu hình local. Không dùng mật khẩu Docker demo ở production.
 - Đây là base local: API bind loopback. Cần cấu hình host, secrets và hạ tầng riêng khi deploy.

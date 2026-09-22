@@ -1,9 +1,14 @@
 import { defineConfig, devices } from '@playwright/test';
+const database =
+  process.env.AUTH_TEST_DATABASE_URL ||
+  'postgresql://socialflow:socialflow_local@localhost:55432/socialflow_auth_test?schema=public';
 export default defineConfig({
   testDir: './tests/e2e',
-  fullyParallel: true,
+  workers: 1,
+  fullyParallel: false,
+  timeout: 60000,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  retries: 0,
   reporter: 'list',
   use: { baseURL: 'http://localhost:3017', trace: 'retain-on-failure' },
   projects: [
@@ -16,16 +21,28 @@ export default defineConfig({
   webServer: [
     {
       command: 'npm run start --workspace=@social-flow/api',
-      env: { WEB_ORIGIN: 'http://localhost:3017' },
-      url: 'http://localhost:4000/api/health',
+      env: {
+        NODE_ENV: 'test',
+        PORT: '4018',
+        WEB_ORIGIN: 'http://localhost:3017',
+        DATABASE_URL: database,
+        GOOGLE_CLIENT_ID: '',
+        GOOGLE_CLIENT_SECRET: '',
+      },
+      url: 'http://localhost:4018/api/health',
       reuseExistingServer: false,
       timeout: 60000,
     },
     {
-      command: 'npm exec --workspace=@social-flow/web -- next start --port 3017',
-      url: 'http://localhost:3017',
+      command: 'npm exec --workspace=@social-flow/web -- next dev --port 3017',
+      env: {
+        NEXT_DIST_DIR: '.next-e2e',
+        NEXT_PUBLIC_API_URL: 'http://localhost:4018/api',
+        API_INTERNAL_URL: 'http://localhost:4018/api',
+      },
+      url: 'http://localhost:3017/login',
       reuseExistingServer: false,
-      timeout: 60000,
+      timeout: 120000,
     },
   ],
 });

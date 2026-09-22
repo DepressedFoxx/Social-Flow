@@ -11,3 +11,6 @@ test-results/
 apps/api/src/generated/
 *.log
 .DS_Store
+
+# Isolated E2E Next.js output
+apps/web/.next-e2e/

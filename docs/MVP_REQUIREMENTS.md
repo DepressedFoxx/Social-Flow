@@ -14,13 +14,13 @@ Không tích hợp social API thật, video, đa thành viên/phân quyền nhó
 
 ### AUTH-01 — Đăng nhập: `/login`
 
-- Đăng nhập bằng GitHub qua backend; hiển thị loading và lỗi/hủy OAuth.
+- Đăng ký email/mật khẩu (8–128 ký tự, ít nhất một chữ hoa và một ký tự đặc biệt), đăng nhập bằng email/mật khẩu hoặc Google qua backend; hiển thị loading và lỗi/hủy OAuth. Không tự gộp tài khoản trùng email.
 - Lần đăng nhập đầu tạo user, workspace và hai kênh mẫu; thao tác phải an toàn khi callback được xử lý lại.
 - Đăng nhập xong chuyển về dashboard; có logout.
 - API bảo vệ dữ liệu bằng session và quyền sở hữu workspace, không chỉ ẩn UI.
 - Thiếu/hết phiên trả `401`; UI hướng dẫn đăng nhập lại và không báo lưu thành công giả.
 - Không lưu token phiên nhạy cảm trong localStorage. Nếu dùng cookie phiên, cần HttpOnly, Secure ở production và bảo vệ CSRF phù hợp.
-- GitHub login xác định user SocialFlow; không đồng nghĩa đã kết nối tài khoản Facebook/Instagram thật.
+- Email/Google login xác định user SocialFlow; không đồng nghĩa đã kết nối tài khoản Facebook/Instagram thật.
 
 **Nghiệm thu:** người chưa đăng nhập không truy cập dữ liệu riêng; callback lặp không tạo nhiều workspace; logout làm mất quyền truy cập phiên tương ứng.
 
@@ -140,12 +140,12 @@ stateDiagram-v2
 
 ## 3. API mục tiêu
 
-Đây là hợp đồng dự kiến cho backend NestJS, chưa phải danh sách endpoint đã triển khai. Base path: `/api`.
+Đây là hợp đồng API của backend NestJS. Các endpoint từ auth đến CRUD Post và dashboard đã được triển khai; media, scheduling, attempts và calendar vẫn là hợp đồng mục tiêu. Base path: `/api`.
 
 | Method / route                  | Trách nhiệm                         |
 | ------------------------------- | ----------------------------------- |
-| GET `/auth/github`              | Bắt đầu OAuth                       |
-| GET `/auth/github/callback`     | Xử lý callback và tạo session       |
+| GET `/auth/google`              | Bắt đầu OAuth                       |
+| GET `/auth/google/callback`     | Xử lý callback và tạo session       |
 | GET `/auth/me`                  | User/workspace của phiên hiện tại   |
 | POST `/auth/logout`             | Đăng xuất                           |
 | GET `/channels`                 | Hai kênh của workspace              |

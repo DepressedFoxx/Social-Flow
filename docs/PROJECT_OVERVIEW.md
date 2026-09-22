@@ -64,22 +64,22 @@ flowchart TD
 
 ## 4. Tech stack
 
-| Mảng         | Công nghệ                                                | Mục đích                                                             |
-| ------------ | -------------------------------------------------------- | -------------------------------------------------------------------- |
-| FE           | Next.js App Router, React, TypeScript                    | Giao diện và routing                                                 |
-| UI           | Tailwind CSS, cấu trúc shadcn/ui, Radix, Lucide, Sonner  | Component, icon và thông báo                                         |
-| Font         | Be Vietnam Pro cài local                                 | Hiển thị tiếng Việt                                                  |
-| Server state | TanStack Query                                           | Fetch, cache, mutation, invalidation, polling                        |
-| Bảng         | TanStack Table                                           | Cấu hình bảng, lọc/sort/phân trang phía server                       |
-| Form         | React Hook Form, Zod                                     | Dữ liệu form và validation FE                                        |
-| Calendar     | date-fns, dnd-kit                                        | Xử lý ngày và kéo thả                                                |
-| BE           | NestJS, ConfigModule, class-validator, class-transformer | Module, cấu hình, DTO và validation server                           |
-| Auth         | Passport/GitHub OAuth; session phía BE                   | Đăng nhập; thư viện JWT đã cài nhưng giao thức phiên chưa triển khai |
-| Database     | PostgreSQL, Prisma                                       | Dữ liệu, migration và transaction                                    |
-| Storage      | AWS SDK S3 và presigner                                  | Signed upload; nhà cung cấp storage chưa chọn                        |
-| API docs     | Swagger                                                  | Tài liệu endpoint                                                    |
-| Testing      | Vitest, React Testing Library, Playwright                | Unit/component và E2E                                                |
-| Tooling      | npm workspaces, ESLint, Prettier, GitHub Actions         | Quản lý dependency và kiểm tra chất lượng                            |
+| Mảng         | Công nghệ                                                | Mục đích                                          |
+| ------------ | -------------------------------------------------------- | ------------------------------------------------- |
+| FE           | Next.js App Router, React, TypeScript                    | Giao diện và routing                              |
+| UI           | Tailwind CSS, cấu trúc shadcn/ui, Radix, Lucide, Sonner  | Component, icon và thông báo                      |
+| Font         | Be Vietnam Pro cài local                                 | Hiển thị tiếng Việt                               |
+| Server state | TanStack Query                                           | Fetch, cache, mutation, invalidation, polling     |
+| Bảng         | TanStack Table                                           | Cấu hình bảng, lọc/sort/phân trang phía server    |
+| Form         | React Hook Form, Zod                                     | Dữ liệu form và validation FE                     |
+| Calendar     | date-fns, dnd-kit                                        | Xử lý ngày và kéo thả                             |
+| BE           | NestJS, ConfigModule, class-validator, class-transformer | Module, cấu hình, DTO và validation server        |
+| Auth         | scrypt + google-auth-library; session phía BE            | Email/mật khẩu và Google; session cookie HttpOnly |
+| Database     | PostgreSQL, Prisma                                       | Dữ liệu, migration và transaction                 |
+| Storage      | AWS SDK S3 và presigner                                  | Signed upload; nhà cung cấp storage chưa chọn     |
+| API docs     | Swagger                                                  | Tài liệu endpoint                                 |
+| Testing      | Vitest, React Testing Library, Playwright                | Unit/component và E2E                             |
+| Tooling      | npm workspaces, ESLint, Prettier, GitHub Actions         | Quản lý dependency và kiểm tra chất lượng         |
 
 Phiên bản cài đặt được xác định bằng `package-lock.json`; không nâng major tự động theo thông báo của CLI. Repo chốt npm 11.19.1 để xử lý dependency overrides đúng. Cách cài và chạy nằm trong [README](../README.md).
 
@@ -97,11 +97,11 @@ Không đưa server state sang Redux/Zustand trong MVP. Optimistic update áp d�
 
 ## 5. Trạng thái triển khai hiện tại
 
-Đã có bộ khung: hai workspace, dependency, cấu hình UI/query, trang kiểm tra API, NestJS health/readiness, Swagger, Prisma service, model Workspace ban đầu và migration, Docker Compose PostgreSQL, cấu hình format/lint/test/CI, env mẫu và workspace VS Code.
+Đã có bộ khung, đăng nhập email/Google, ownership theo workspace, dashboard nghiệp vụ và module nội dung. Dashboard đọc số lượng bài theo trạng thái và tối đa năm bài sắp đăng từ PostgreSQL, có loading, empty, lỗi/retry và kiểm thử cách ly workspace.
 
-Chưa có: login, ownership của Workspace, CRUD bài viết, upload thật, dashboard nghiệp vụ, calendar và worker/publisher. Model Workspace hiện tại chưa đủ để mở API dữ liệu người dùng; phải thêm ownership trước.
+Module nội dung đã có danh sách search/filter/sort/phân trang theo URL, tạo/sửa/xóa bản nháp, preview, cảnh báo thay đổi chưa lưu, idempotency khi tạo và version conflict khi sửa/xóa. API luôn scope theo workspace của session; `404` không tiết lộ tài nguyên workspace khác.
 
-Các test hiện có chỉ xác minh bộ khung, kết nối FE–BE, trạng thái lỗi/thử lại và chiều rộng mobile. Chúng không chứng minh các yêu cầu MVP đã hoàn thành.
+Chưa có: upload thật, calendar, scheduling và worker/publisher. Các test hiện có xác minh auth/session, ownership, dashboard, CRUD Post, idempotency, conflict, bộ lọc URL và chiều rộng desktop/mobile. Media, scheduling và publisher vẫn cần test riêng khi được triển khai.
 
 ## 6. Thứ tự xây dựng
 
