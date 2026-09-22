@@ -26,8 +26,9 @@
     "db:deploy": "npm run db:deploy --workspace=@social-flow/api",
     "db:studio": "npm run db:studio --workspace=@social-flow/api",
     "test": "npm run test --workspace=@social-flow/web",
-    "test:e2e": "playwright test",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build"
+    "test:e2e": "npm run build --workspace=@social-flow/api && node scripts/test-auth.mjs --prepare-only && playwright test",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build",
+    "test:api": "npm run build --workspace=@social-flow/api && node scripts/test-auth.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.0",

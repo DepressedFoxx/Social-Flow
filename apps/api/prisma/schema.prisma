@@ -8,10 +8,95 @@ datasource db {
   provider = "postgresql"
 }
 
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  googleId     String?    @unique
+  passwordHash String?
+  name         String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  workspace    Workspace?
+  sessions     Session[]
+}
+
 model Workspace {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
+  ownerId   String    @unique
+  owner     User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   name      String
-  timezone  String   @default("Asia/Ho_Chi_Minh")
+  timezone  String    @default("Asia/Ho_Chi_Minh")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  channels  Channel[]
+  posts     Post[]
+}
+
+enum Platform {
+  FACEBOOK
+  INSTAGRAM
+}
+
+model Channel {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  platform    Platform
+  name        String
+  isMock      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  posts       Post[]
+
+  @@unique([workspaceId, platform])
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  FAILED
+}
+
+model Post {
+  id              String     @id @default(cuid())
+  workspaceId     String
+  workspace       Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  channelId       String
+  channel         Channel    @relation(fields: [channelId], references: [id], onDelete: Restrict)
+  clientRequestId String?
+  title           String
+  content         String     @default("")
+  status          PostStatus @default(DRAFT)
+  scheduledAt     DateTime?
+  publishedAt     DateTime?
+  version         Int        @default(1)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@unique([workspaceId, clientRequestId])
+  @@index([workspaceId, status])
+  @@index([workspaceId, scheduledAt])
+  @@index([channelId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  csrfToken String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
+  @@index([userId])
+}
+
+model OAuthAttempt {
+  stateHash String   @id
+  verifier  String
+  expiresAt DateTime
+
+  @@index([expiresAt])
 }
