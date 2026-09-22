@@ -83,6 +83,10 @@ Ví dụ: `/posts?q=khuyen-mai&status=scheduled&channel=instagram&page=2`.
 - Có tác vụ dọn ảnh chưa gắn với bài sau thời gian lưu tạm, mặc định 24 giờ; không xóa ảnh còn được tham chiếu.
 - Storage provider và quota tổng mỗi workspace sẽ được cấu hình khi triển khai module media.
 
+**Trạng thái local:** đã triển khai adapter lưu file local với URL upload có token 10 phút. Backend kiểm tra magic bytes, size, session/workspace khi complete và khi gắn vào Post. Production vẫn cần thay adapter này bằng object storage tương thích S3.
+
+Trang `/media` hiển thị quota, dung lượng đã dùng, dung lượng pending đang giữ chỗ và phần còn lại. Quota nằm trên workspace để sau này đồng bộ theo gói giá; cấu hình mặc định hiện tại là gói Personal 250 MB. Cấp URL upload vượt quota trả `413 MEDIA_QUOTA_EXCEEDED`.
+
 **Nghiệm thu:** file sai loại/quá dung lượng bị từ chối; upload lỗi cho retry; không gắn được ảnh của user khác bằng cách đổi ID.
 
 ### SCHEDULE-01 — Lên lịch và trạng thái
@@ -140,7 +144,7 @@ stateDiagram-v2
 
 ## 3. API mục tiêu
 
-Đây là hợp đồng API của backend NestJS. Các endpoint từ auth đến CRUD Post và dashboard đã được triển khai; media, scheduling, attempts và calendar vẫn là hợp đồng mục tiêu. Base path: `/api`.
+Đây là hợp đồng API của backend NestJS. Các endpoint từ auth, CRUD Post, media local đến dashboard đã được triển khai; scheduling, attempts và calendar vẫn là hợp đồng mục tiêu. Base path: `/api`.
 
 | Method / route                  | Trách nhiệm                         |
 | ------------------------------- | ----------------------------------- |
@@ -161,7 +165,11 @@ stateDiagram-v2
 | GET `/calendar?from=...&to=...` | Bài trong khoảng thời gian          |
 | GET `/dashboard`                | Thống kê                            |
 | POST `/media/upload-url`        | Tạo pending asset và cấp signed URL |
+| PUT `/media/:id/upload`         | Upload file qua token có hạn        |
 | POST `/media/:id/complete`      | Xác nhận upload                     |
+| GET `/media/:id/content`        | Đọc ảnh thuộc workspace             |
+| DELETE `/media/:id`             | Xóa asset chưa gắn vào bài          |
+| GET `/media`                    | Thư viện và thống kê quota          |
 
 Quy ước:
 

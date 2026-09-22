@@ -385,6 +385,188 @@ test('authentication HTTP integration with isolated test database', async (t) =>
       );
     });
     await t.test(
+      'media upload verifies bytes and only attaches workspace assets',
+      async () => {
+        const png = Buffer.from(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+          'base64',
+        );
+        const initResponse = await post(
+          '/media/upload-url',
+          { filename: 'pixel.png', mimeType: 'image/png', size: png.length },
+          cookie,
+          session.csrfToken,
+        );
+        assert.equal(initResponse.status, 201);
+        const init = await initResponse.json();
+        assert.match(init.uploadUrl, new RegExp('/media/' + init.assetId + '/upload'));
+
+        const invalidForm = new FormData();
+        invalidForm.append('file', new Blob([png], { type: 'image/png' }), 'pixel.png');
+        assert.equal(
+          (
+            await request('/media/' + init.assetId + '/upload?token=wrong', {
+              method: 'PUT',
+              body: invalidForm,
+            })
+          ).status,
+          403,
+        );
+
+        const form = new FormData();
+        form.append('file', new Blob([png], { type: 'image/png' }), 'pixel.png');
+        const uploaded = await fetch(base + '/api' + init.uploadUrl, {
+          method: 'PUT',
+          body: form,
+        });
+        assert.equal(uploaded.status, 204);
+        assert.equal(
+          (
+            await post(
+              '/media/' + init.assetId + '/complete',
+              {},
+              otherCookie,
+              otherSession.csrfToken,
+            )
+          ).status,
+          404,
+        );
+        const completed = await post(
+          '/media/' + init.assetId + '/complete',
+          {},
+          cookie,
+          session.csrfToken,
+        );
+        assert.equal(completed.status, 201);
+        const asset = await completed.json();
+        assert.equal(asset.id, init.assetId);
+
+        const libraryBeforeAttach = await (
+          await request('/media', { headers: { Cookie: cookie } })
+        ).json();
+        assert.equal(libraryBeforeAttach.planCode, 'PERSONAL');
+        assert.equal(libraryBeforeAttach.quotaBytes, 262144000);
+        assert.equal(libraryBeforeAttach.usedBytes, png.length);
+        assert.equal(libraryBeforeAttach.items[0].post, null);
+        await prisma.workspace.update({
+          where: { id: session.workspace.id },
+          data: { mediaQuotaBytes: BigInt(png.length) },
+        });
+        assert.equal(
+          (
+            await post(
+              '/media/upload-url',
+              { filename: 'over.png', mimeType: 'image/png', size: png.length },
+              cookie,
+              session.csrfToken,
+            )
+          ).status,
+          413,
+        );
+        await prisma.workspace.update({
+          where: { id: session.workspace.id },
+          data: { mediaQuotaBytes: BigInt(262144000) },
+        });
+
+        const content = await request(asset.contentPath, { headers: { Cookie: cookie } });
+        assert.equal(content.status, 200);
+        assert.equal(content.headers.get('content-type'), 'image/png');
+        assert.equal(content.headers.get('cross-origin-resource-policy'), 'cross-origin');
+        assert.equal(Buffer.from(await content.arrayBuffer()).equals(png), true);
+        assert.equal(
+          (await request(asset.contentPath, { headers: { Cookie: otherCookie } })).status,
+          404,
+        );
+
+        const mediaPostPayload = {
+          title: 'Post with media',
+          content: '',
+          channelId: session.workspace.channels[0].id,
+          clientRequestId: randomUUID(),
+          mediaAssetIds: [asset.id],
+        };
+        const createdResponse = await post(
+          '/posts',
+          mediaPostPayload,
+          cookie,
+          session.csrfToken,
+        );
+        assert.equal(createdResponse.status, 201);
+        const created = await createdResponse.json();
+        assert.equal(created.media[0].id, asset.id);
+        const libraryAfterAttach = await (
+          await request('/media?q=pixel', { headers: { Cookie: cookie } })
+        ).json();
+        assert.equal(libraryAfterAttach.total, 1);
+        assert.equal(libraryAfterAttach.items[0].post.id, created.id);
+        const repeated = await post(
+          '/posts',
+          mediaPostPayload,
+          cookie,
+          session.csrfToken,
+        );
+        assert.equal(repeated.status, 201);
+        assert.equal((await repeated.json()).id, created.id);
+
+        assert.equal(
+          (
+            await post(
+              '/posts',
+              {
+                title: 'Foreign media',
+                content: '',
+                channelId: otherSession.workspace.channels[0].id,
+                clientRequestId: randomUUID(),
+                mediaAssetIds: [asset.id],
+              },
+              otherCookie,
+              otherSession.csrfToken,
+            )
+          ).status,
+          400,
+        );
+        assert.equal(
+          (
+            await request('/media/' + asset.id, {
+              method: 'DELETE',
+              headers: {
+                Cookie: cookie,
+                Origin: process.env.WEB_ORIGIN,
+                'x-csrf-token': session.csrfToken,
+              },
+            })
+          ).status,
+          409,
+        );
+
+        const detached = await request('/posts/' + created.id, {
+          method: 'PATCH',
+          headers: {
+            Cookie: cookie,
+            Origin: process.env.WEB_ORIGIN,
+            'Content-Type': 'application/json',
+            'x-csrf-token': session.csrfToken,
+          },
+          body: JSON.stringify({ expectedVersion: 1, mediaAssetIds: [] }),
+        });
+        assert.equal(detached.status, 200);
+        assert.equal((await detached.json()).media.length, 0);
+        assert.equal(
+          (
+            await request('/media/' + asset.id, {
+              method: 'DELETE',
+              headers: {
+                Cookie: cookie,
+                Origin: process.env.WEB_ORIGIN,
+                'x-csrf-token': session.csrfToken,
+              },
+            })
+          ).status,
+          204,
+        );
+      },
+    );
+    await t.test(
       'wrong credentials are generic; CSRF and session revocation enforced',
       async () => {
         const bad = await post('/auth/login', { email, password: 'wrong' });

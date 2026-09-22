@@ -76,7 +76,7 @@ flowchart TD
 | BE           | NestJS, ConfigModule, class-validator, class-transformer | Module, cấu hình, DTO và validation server        |
 | Auth         | scrypt + google-auth-library; session phía BE            | Email/mật khẩu và Google; session cookie HttpOnly |
 | Database     | PostgreSQL, Prisma                                       | Dữ liệu, migration và transaction                 |
-| Storage      | AWS SDK S3 và presigner                                  | Signed upload; nhà cung cấp storage chưa chọn     |
+| Storage      | Local signed-upload adapter; AWS SDK đã cài              | Local dev hoạt động; S3 production chưa cấu hình  |
 | API docs     | Swagger                                                  | Tài liệu endpoint                                 |
 | Testing      | Vitest, React Testing Library, Playwright                | Unit/component và E2E                             |
 | Tooling      | npm workspaces, ESLint, Prettier, GitHub Actions         | Quản lý dependency và kiểm tra chất lượng         |
@@ -101,7 +101,11 @@ Không đưa server state sang Redux/Zustand trong MVP. Optimistic update áp d�
 
 Module nội dung đã có danh sách search/filter/sort/phân trang theo URL, tạo/sửa/xóa bản nháp, preview, cảnh báo thay đổi chưa lưu, idempotency khi tạo và version conflict khi sửa/xóa. API luôn scope theo workspace của session; `404` không tiết lộ tài nguyên workspace khác.
 
-Chưa có: upload thật, calendar, scheduling và worker/publisher. Các test hiện có xác minh auth/session, ownership, dashboard, CRUD Post, idempotency, conflict, bộ lọc URL và chiều rộng desktop/mobile. Media, scheduling và publisher vẫn cần test riêng khi được triển khai.
+POST-02 và MEDIA-01 đã hỗ trợ tối đa bốn ảnh JPEG/PNG/WebP, giới hạn 5 MB, preview, retry, xóa, sắp thứ tự, xác nhận magic bytes và kiểm tra ownership trước khi gắn vào draft. Local dùng URL upload có token hết hạn và lưu file ngoài Git; adapter S3 production chưa được nối.
+
+Trang `/media` quản lý thư viện và tổng dung lượng theo workspace. Mỗi workspace lưu `planCode` và `mediaQuotaBytes`; gói Personal hiện mặc định 250 MB. API tính cả dung lượng đã dùng và phần giữ chỗ của upload pending, đồng thời khóa workspace khi cấp upload để không vượt quota do request song song. Billing và bảng giá chưa thuộc phạm vi hiện tại.
+
+Chưa có: calendar, scheduling và worker/publisher. Các test hiện có xác minh auth/session, ownership, dashboard, CRUD Post, idempotency, conflict, upload media, bộ lọc URL và chiều rộng desktop/mobile.
 
 ## 6. Thứ tự xây dựng
 

@@ -75,7 +75,9 @@ Mở `social-flow.code-workspace` trong VS Code để thấy Frontend/Backend ri
 - Đã cài SDK S3, form, calendar drag-and-drop và testing để xây tiếp; chưa kết nối dịch vụ ngoài.
 - User sở hữu workspace; API lấy quyền truy cập từ phiên. Tạo tài khoản kèm hai kênh mock trong transaction.
 - Đã có CRUD bản nháp, danh sách search/filter/sort/phân trang và chống ghi đè bằng version.
-- Chưa triển khai media, lịch đăng, publisher/worker hoặc social API thật.
+- Đã có MEDIA-01 qua local signed-upload adapter: kiểm tra bytes, preview, retry, xóa, sắp thứ tự và gắn tối đa 4 ảnh vào draft.
+- `/media` hiển thị thư viện, dung lượng đã dùng/giữ chỗ/còn lại; gói Personal mặc định có quota 250 MB lưu trên workspace.
+- Chưa triển khai S3 production, lịch đăng, publisher/worker hoặc social API thật.
 - Prisma client được sinh tự động trước dev/build/typecheck, không commit generated code.
 - File .env.example chỉ chứa cấu hình local. Không dùng mật khẩu Docker demo ở production.
 - Đây là base local: API bind loopback. Cần cấu hình host, secrets và hạ tầng riêng khi deploy.

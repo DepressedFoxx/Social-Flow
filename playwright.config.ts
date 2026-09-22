@@ -28,6 +28,7 @@ export default defineConfig({
         DATABASE_URL: database,
         GOOGLE_CLIENT_ID: '',
         GOOGLE_CLIENT_SECRET: '',
+        MEDIA_STORAGE_PATH: '.data/media-e2e',
       },
       url: 'http://localhost:4018/api/health',
       reuseExistingServer: false,

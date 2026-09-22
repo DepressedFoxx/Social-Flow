@@ -135,15 +135,31 @@ test('post draft lifecycle keeps filters in the URL', async ({ page }) => {
     await page
       .getByRole('textbox', { name: 'Nội dung', exact: true })
       .fill('Nội dung thử nghiệm cho chiến dịch.');
+    const pixel = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      'base64',
+    );
+    await page.locator('input[type="file"]').setInputFiles({
+      name: 'pixel.png',
+      mimeType: 'image/png',
+      buffer: pixel,
+    });
+    await expect(page.getByAltText('Ảnh 1: pixel.png')).toBeVisible();
+    await expect(page.getByText('Đang upload…')).toBeHidden();
     await page.getByRole('button', { name: 'Lưu bản nháp' }).click();
     await expect(page).toHaveURL(/\/posts\/[a-z0-9-]+$/);
     await expect(page.getByText('Phiên bản 1')).toBeVisible();
+    await page.reload();
+    await expect(page.getByAltText('Ảnh 1: pixel.png')).toBeVisible();
 
     await page.getByLabel('Tiêu đề nội bộ').fill(updatedTitle);
     await page.getByRole('button', { name: 'Lưu thay đổi' }).click();
     await expect(page.getByText('Phiên bản 2')).toBeVisible();
     await page.getByRole('link', { name: 'Danh sách bài viết' }).click();
     await expect(page).toHaveURL(/\/posts$/);
+    await expect(
+      page.getByAltText(`Ảnh đại diện ${updatedTitle}`).filter({ visible: true }),
+    ).toBeVisible();
 
     await page.getByLabel('Tìm bài viết').fill('mùa thu');
     await expect.poll(() => new URL(page.url()).searchParams.get('q')).toBe('mùa thu');
@@ -166,6 +182,13 @@ test('post draft lifecycle keeps filters in the URL', async ({ page }) => {
     await expect(page.getByRole('dialog', { name: 'Xóa bản nháp?' })).toBeVisible();
     await page.getByRole('button', { name: 'Xóa bản nháp' }).click();
     await expect(page.getByText('Không tìm thấy bài phù hợp')).toBeVisible();
+    await page.goto('/media');
+    await expect(page.getByRole('heading', { name: 'Dung lượng media' })).toBeVisible();
+    await expect(page.getByText('Gói Personal')).toBeVisible();
+    await expect(page.getByAltText('pixel.png')).toBeVisible();
+    await page.getByRole('button', { name: 'Xóa pixel.png' }).click();
+    await page.getByRole('button', { name: 'Xóa media' }).click();
+    await expect(page.getByRole('heading', { name: 'Chưa có media' })).toBeVisible();
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth,
