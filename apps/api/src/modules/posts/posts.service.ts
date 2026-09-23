@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import {
   BadRequestException,
   ConflictException,
@@ -19,7 +20,17 @@ const postSelect = {
   version: true,
   createdAt: true,
   updatedAt: true,
-  channel: { select: { id: true, name: true, platform: true, isMock: true } },
+  channel: {
+    select: {
+      id: true,
+      name: true,
+      platform: true,
+      isMock: true,
+      isActive: true,
+      credential: { select: { expiresAt: true } },
+    },
+  },
+  attempts: { orderBy: { startedAt: 'desc' as const }, take: 20 },
   media: {
     orderBy: { position: 'asc' as const },
     select: {
@@ -37,10 +48,13 @@ export class PostsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mediaService: MediaService,
+    private readonly config: ConfigService,
   ) {}
 
   private channel(workspaceId: string, channelId: string) {
-    return this.prisma.channel.findFirst({ where: { id: channelId, workspaceId } });
+    return this.prisma.channel.findFirst({
+      where: { id: channelId, workspaceId, isMock: false },
+    });
   }
 
   private async assertChannel(workspaceId: string, channelId: string) {
@@ -64,8 +78,17 @@ export class PostsService {
   }
 
   private present(post: SelectedPost) {
+    const { credential, ...channel } = post.channel;
     return {
       ...post,
+      channel: {
+        ...channel,
+        isActive:
+          channel.isActive &&
+          !channel.isMock &&
+          Boolean(credential) &&
+          (!credential?.expiresAt || credential.expiresAt > new Date()),
+      },
       media: post.media.map(({ position, mediaAsset }) => ({
         ...this.mediaService.publicAsset(mediaAsset),
         position,
@@ -190,7 +213,12 @@ export class PostsService {
       });
     const post = await this.prisma.$transaction(async (transaction) => {
       const updated = await transaction.post.updateMany({
-        where: { id, workspaceId, version: expectedVersion, status: 'DRAFT' },
+        where: {
+          id,
+          workspaceId,
+          version: expectedVersion,
+          status: { in: ['DRAFT', 'FAILED'] },
+        },
         data: { ...data, version: { increment: 1 } },
       });
       if (updated.count !== 1) return null;
@@ -214,14 +242,169 @@ export class PostsService {
     const current = await this.prisma.post.findFirst({ where: { id, workspaceId } });
     if (!current) throw this.notFound();
     throw new ConflictException({
-      code: current.status === 'DRAFT' ? 'VERSION_CONFLICT' : 'POST_NOT_EDITABLE',
+      code: ['DRAFT', 'FAILED'].includes(current.status)
+        ? 'VERSION_CONFLICT'
+        : 'POST_NOT_EDITABLE',
       message:
         current.status === 'DRAFT'
           ? 'Bài viết đã được thay đổi ở nơi khác. Hãy tải lại trước khi lưu.'
-          : 'Chỉ bản nháp mới có thể chỉnh sửa.',
+          : 'Chỉ bản nháp hoặc bài lỗi mới có thể chỉnh sửa.',
     });
   }
 
+  async changeSchedule(
+    workspaceId: string,
+    id: string,
+    expectedVersion: number,
+    action: 'create' | 'reschedule' | 'cancel' | 'now',
+    rawDate?: string,
+  ) {
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1)
+      throw new BadRequestException({
+        code: 'EXPECTED_VERSION_REQUIRED',
+        message: 'Thiếu phiên bản bài viết hợp lệ.',
+      });
+    return this.prisma.$transaction(async (tx) => {
+      const post = await tx.post.findFirst({
+        where: { id, workspaceId },
+        include: {
+          channel: { include: { credential: true } },
+          media: { include: { mediaAsset: true } },
+          attempts: { orderBy: { startedAt: 'desc' }, take: 1 },
+        },
+      });
+      if (!post) throw this.notFound();
+      const allowed =
+        action === 'create' || action === 'now'
+          ? post.status === 'DRAFT' || post.status === 'FAILED'
+          : post.status === 'SCHEDULED';
+      if (post.version !== expectedVersion || !allowed)
+        throw new ConflictException({
+          code: 'SCHEDULE_CONFLICT',
+          message:
+            'Bài viết đã thay đổi hoặc trạng thái không cho phép. Hãy tải lại dữ liệu.',
+        });
+      const scheduledAt =
+        action === 'cancel'
+          ? null
+          : action === 'now'
+            ? new Date()
+            : new Date(rawDate ?? '');
+      if (scheduledAt) {
+        if (post.attempts[0]?.errorCode === 'PUBLISH_UNCERTAIN')
+          throw new ConflictException({
+            code: 'PUBLISH_UNCERTAIN',
+            message:
+              'Kiểm tra trực tiếp tài khoản và xác nhận chưa đăng trước khi thử lại.',
+          });
+        if (
+          post.channel.isMock ||
+          !post.channel.externalId ||
+          !post.channel.credential ||
+          (post.channel.credential.expiresAt &&
+            post.channel.credential.expiresAt <= new Date())
+        )
+          throw new BadRequestException({
+            code: 'META_RECONNECT_REQUIRED',
+            message: 'Hãy kết nối tài khoản Meta thật trước khi đăng.',
+          });
+        if (post.media.length && !this.config.get<string>('META_PUBLIC_API_ORIGIN'))
+          throw new BadRequestException({
+            code: 'PUBLIC_MEDIA_REQUIRED',
+            message: 'Chưa cấu hình HTTPS công khai để Meta đọc ảnh.',
+          });
+        if (
+          post.channel.platform === 'INSTAGRAM' &&
+          post.media.some(({ mediaAsset }) => mediaAsset.mimeType !== 'image/jpeg')
+        )
+          throw new BadRequestException({
+            code: 'INSTAGRAM_JPEG_REQUIRED',
+            message: 'Instagram chỉ hỗ trợ ảnh JPEG. Hãy đổi định dạng ảnh.',
+          });
+
+        if (!post.channel.isActive)
+          throw new BadRequestException({
+            code: 'ACCOUNT_PAUSED',
+            message: 'Tài khoản đăng đang tạm dừng.',
+          });
+        if (
+          !Number.isFinite(scheduledAt.getTime()) ||
+          (action !== 'now' && scheduledAt.getTime() < Date.now() + 5 * 60_000)
+        )
+          throw new BadRequestException({
+            code: 'INVALID_SCHEDULE_TIME',
+            message: 'Lịch đăng phải cách thời gian hiện tại ít nhất 5 phút.',
+          });
+        if (!post.content.trim() || post.content.length > 2000)
+          throw new BadRequestException({
+            code: 'POST_CONTENT_REQUIRED',
+            message: 'Nội dung cần có từ 1 đến 2.000 ký tự trước khi lên lịch.',
+          });
+        if (post.channel.platform === 'INSTAGRAM' && !post.media.length)
+          throw new BadRequestException({
+            code: 'INSTAGRAM_IMAGE_REQUIRED',
+            message: 'Bài Instagram cần ít nhất một ảnh trước khi lên lịch.',
+          });
+        if (
+          post.media.some(
+            ({ mediaAsset }) =>
+              mediaAsset.status !== 'READY' || mediaAsset.workspaceId !== workspaceId,
+          )
+        )
+          throw new BadRequestException({
+            code: 'INVALID_MEDIA',
+            message: 'Ảnh chưa sẵn sàng để lên lịch.',
+          });
+      }
+      const changed = await tx.post.updateMany({
+        where: { id, workspaceId, version: expectedVersion, status: post.status },
+        data: {
+          scheduledAt,
+          status: action === 'cancel' ? 'DRAFT' : 'SCHEDULED',
+          version: { increment: 1 },
+        },
+      });
+      if (changed.count !== 1)
+        throw new ConflictException({
+          code: 'SCHEDULE_CONFLICT',
+          message: 'Lịch đã thay đổi ở nơi khác. Hãy tải lại dữ liệu.',
+        });
+      return this.present(
+        await tx.post.findUniqueOrThrow({ where: { id }, select: postSelect }),
+      );
+    });
+  }
+  async acknowledgeUncertain(workspaceId: string, id: string, expectedVersion: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const post = await tx.post.findFirst({
+        where: { id, workspaceId },
+        include: { attempts: { orderBy: { startedAt: 'desc' }, take: 1 } },
+      });
+      if (!post) throw this.notFound();
+      if (
+        post.status !== 'FAILED' ||
+        post.version !== expectedVersion ||
+        post.attempts[0]?.errorCode !== 'PUBLISH_UNCERTAIN'
+      )
+        throw new ConflictException('Trạng thái bài đã thay đổi. Hãy tải lại.');
+      const updated = await tx.post.updateMany({
+        where: { id, workspaceId, version: expectedVersion, status: 'FAILED' },
+        data: { version: { increment: 1 } },
+      });
+      if (updated.count !== 1) throw new ConflictException('Bài đã được thay đổi.');
+      await tx.publishAttempt.update({
+        where: { id: post.attempts[0].id },
+        data: {
+          errorCode: 'UNCERTAIN_ACKNOWLEDGED',
+          errorMessage:
+            'Chủ workspace đã xác nhận kiểm tra tài khoản và chưa có bài đăng.',
+        },
+      });
+      return this.present(
+        await tx.post.findUniqueOrThrow({ where: { id }, select: postSelect }),
+      );
+    });
+  }
   async remove(workspaceId: string, id: string, rawVersion?: string) {
     const expectedVersion = Number(rawVersion);
     if (!Number.isInteger(expectedVersion) || expectedVersion < 1)
@@ -230,7 +413,12 @@ export class PostsService {
         message: 'Thiếu phiên bản bài viết hợp lệ trong If-Match.',
       });
     const removed = await this.prisma.post.deleteMany({
-      where: { id, workspaceId, version: expectedVersion, status: 'DRAFT' },
+      where: {
+        id,
+        workspaceId,
+        version: expectedVersion,
+        status: 'DRAFT',
+      },
     });
     if (removed.count === 1) return;
     const current = await this.prisma.post.findFirst({ where: { id, workspaceId } });

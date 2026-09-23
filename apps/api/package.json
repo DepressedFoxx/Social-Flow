@@ -8,6 +8,7 @@
     "prebuild": "npm run db:generate",
     "build": "nest build",
     "start": "node dist/main.js",
+    "worker": "node dist/worker.js",
     "lint": "eslint .",
     "typecheck": "npm run db:generate && tsc --noEmit",
     "db:generate": "prisma generate",

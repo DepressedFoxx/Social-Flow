@@ -6,6 +6,8 @@ import { usePathname } from 'next/navigation';
 import {
   FileText,
   Images,
+  CalendarDays,
+  Users,
   LayoutDashboard,
   Menu,
   PanelLeftClose,
@@ -19,6 +21,8 @@ import { cn } from '@/lib/utils';
 const navigation = [
   { href: '/dashboard', label: 'Tổng quan', icon: LayoutDashboard },
   { href: '/posts', label: 'Bài viết', icon: FileText },
+  { href: '/accounts', label: 'Tài khoản đăng', icon: Users },
+  { href: '/calendar', label: 'Lịch đăng', icon: CalendarDays },
   { href: '/media', label: 'Thư viện media', icon: Images },
 ] as const;
 
@@ -28,6 +32,8 @@ function pageTitle(pathname: string) {
   if (pathname.startsWith('/posts/')) return 'Chi tiết bài viết';
   if (pathname.startsWith('/posts')) return 'Bài viết';
   if (pathname.startsWith('/media')) return 'Thư viện media';
+  if (pathname.startsWith('/accounts')) return 'Tài khoản đăng';
+  if (pathname.startsWith('/calendar')) return 'Lịch đăng';
   return 'SocialFlow';
 }
 
@@ -128,7 +134,7 @@ export function AppShell({
         <div className="border-t border-border p-4">
           <p className="truncate text-sm font-medium">{session.workspace.name}</p>
           <p className="mt-1 truncate text-xs text-muted-foreground">
-            {session.workspace.channels.length} kênh đang quản lý
+            {session.workspace.channels.length} tài khoản đang quản lý
           </p>
         </div>
       </aside>

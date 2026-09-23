@@ -73,11 +73,11 @@ Mở `social-flow.code-workspace` trong VS Code để thấy Frontend/Backend ri
 - Next.js chỉ phụ trách FE; nghiệp vụ/API được chuyển sang NestJS theo yêu cầu tách workspace.
 - Auth do BE quản lý: email/mật khẩu và Google OAuth, dùng session cookie HttpOnly. Xem [hướng dẫn đăng nhập](docs/AUTHENTICATION.md).
 - Đã cài SDK S3, form, calendar drag-and-drop và testing để xây tiếp; chưa kết nối dịch vụ ngoài.
-- User sở hữu workspace; API lấy quyền truy cập từ phiên. Tạo tài khoản kèm hai kênh mock trong transaction.
+- User sở hữu workspace; API lấy quyền truy cập từ phiên. Tạo workspace trống; chủ workspace kết nối tài khoản Meta sau khi đăng nhập.
 - Đã có CRUD bản nháp, danh sách search/filter/sort/phân trang và chống ghi đè bằng version.
 - Đã có MEDIA-01 qua local signed-upload adapter: kiểm tra bytes, preview, retry, xóa, sắp thứ tự và gắn tối đa 4 ảnh vào draft.
 - `/media` hiển thị thư viện, dung lượng đã dùng/giữ chỗ/còn lại; gói Personal mặc định có quota 250 MB lưu trên workspace.
-- Chưa triển khai S3 production, lịch đăng, publisher/worker hoặc social API thật.
+- Đã có lịch đăng và tích hợp Meta; cần cấu hình App/HTTPS và kiểm thử live. Chưa triển khai S3 production.
 - Prisma client được sinh tự động trước dev/build/typecheck, không commit generated code.
 - File .env.example chỉ chứa cấu hình local. Không dùng mật khẩu Docker demo ở production.
 - Đây là base local: API bind loopback. Cần cấu hình host, secrets và hạ tầng riêng khi deploy.
@@ -94,3 +94,7 @@ Mở `social-flow.code-workspace` trong VS Code để thấy Frontend/Backend ri
 Root package.json pins patched transitive versions of multer (2.4.0), deepmerge-ts (8.0.2), and mysql2 (3.24.4) because NestJS 11 / Prisma 7 currently pin vulnerable versions. Revisit these overrides when upstream dependencies are updated. Prisma generation, migration, build and runtime health are checked against these versions.
 
 Để thêm dependency trên máy đang dùng npm cũ, dùng `npx --yes npm@11.19.1 install <package> --workspace=@social-flow/web` (hoặc `@social-flow/api`). Không cần thay npm toàn máy. Dùng `npx --yes npm@11.19.1 ls` khi kiểm tra cây dependency để tránh cảnh báo invalid giả từ npm 11.11.
+
+## Kết nối Meta thật
+
+Xem [hướng dẫn cấu hình Meta](docs/META_SETUP.md). Đã có OAuth, chọn tài khoản, token mã hóa, publisher Page/Instagram và worker. Cần Meta App và HTTPS để kiểm thử live; không còn tạo tài khoản mẫu trong runtime. API và worker chạy riêng. Chưa được coi là production-ready cho người dùng ngoài App trước App Review và kiểm thử live.

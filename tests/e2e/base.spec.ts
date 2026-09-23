@@ -37,7 +37,7 @@ test('email auth lifecycle, errors, session expiry and responsive layout', async
     await page.unroute('**/api/dashboard');
     await page.getByRole('button', { name: 'Thử lại', exact: true }).click();
     await expect(page.getByText('Chưa có bài nào được lên lịch')).toBeVisible();
-    await expect(page.getByText('Facebook mẫu')).toBeVisible();
+    await expect(page.getByText('Facebook mẫu')).toBeHidden();
     const menuButton = page.getByRole('button', { name: 'Mở menu' });
     if (await menuButton.isVisible()) {
       await menuButton.click();
@@ -55,7 +55,7 @@ test('email auth lifecycle, errors, session expiry and responsive layout', async
       ).toBeVisible();
     }
     await page.reload();
-    await expect(page.getByText('Instagram mẫu')).toBeVisible();
+    await expect(page.getByText('Instagram mẫu')).toBeHidden();
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -71,7 +71,7 @@ test('email auth lifecycle, errors, session expiry and responsive layout', async
     await expect(page).toHaveURL(/\/dashboard$/);
     await page.unroute('**/api/auth/me');
     await page.getByRole('button', { name: 'Thử lại', exact: true }).click();
-    await expect(page.getByText('Facebook mẫu')).toBeVisible();
+    await expect(page.getByText('Facebook mẫu')).toBeHidden();
     await page.route('**/api/auth/logout', (route) =>
       route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }),
     );
@@ -130,7 +130,22 @@ test('post draft lifecycle keeps filters in the URL', async ({ page }) => {
     await page.getByRole('button', { name: 'Tạo tài khoản', exact: true }).click();
     await expect(page).toHaveURL(/\/dashboard$/);
 
+    const workspace = await client.query(
+      'SELECT w.id FROM "Workspace" w JOIN "User" u ON u.id=w."ownerId" WHERE u.email=$1',
+      [email],
+    );
+    const channelId = randomUUID();
+    await client.query(
+      `INSERT INTO "Channel" (id,"workspaceId",platform,name,"isMock","externalId") VALUES ($1,$2,'FACEBOOK','Test Facebook',false,'123456789')`,
+      [channelId, workspace.rows[0].id],
+    );
+    await client.query(
+      `INSERT INTO "ChannelCredential" ("channelId","encryptedToken","pageId") VALUES ($1,'test-fixture-not-a-real-token','123456789')`,
+      [channelId],
+    );
     await page.goto('/posts/new');
+    await page.getByLabel('Tài khoản đăng', { exact: true }).click();
+    await page.getByRole('option', { name: /Test Facebook/ }).click();
     await page.getByLabel('Tiêu đề nội bộ').fill(title);
     await page
       .getByRole('textbox', { name: 'Nội dung', exact: true })
@@ -155,6 +170,19 @@ test('post draft lifecycle keeps filters in the URL', async ({ page }) => {
     await page.getByLabel('Tiêu đề nội bộ').fill(updatedTitle);
     await page.getByRole('button', { name: 'Lưu thay đổi' }).click();
     await expect(page.getByText('Phiên bản 2')).toBeVisible();
+    const dateInput = (offset: number) =>
+      new Date(Date.now() + offset + 7 * 3600000).toISOString().slice(0, 16);
+    await page.getByLabel('Ngày và giờ đăng').fill(dateInput(3600000));
+    await page.getByRole('button', { name: 'Lên lịch', exact: true }).click();
+    await expect(page.getByText('Đã lên lịch:', { exact: false })).toBeVisible();
+    await expect(page.getByLabel('Tiêu đề nội bộ')).toBeDisabled();
+    await page.getByLabel('Ngày và giờ đăng').fill(dateInput(7200000));
+    await page.getByRole('button', { name: 'Đổi lịch', exact: true }).click();
+    await expect(page.getByText('Phiên bản 4')).toBeVisible();
+    await page.getByRole('button', { name: 'Hủy lịch', exact: true }).click();
+    await page.getByRole('button', { name: 'Xác nhận hủy lịch', exact: true }).click();
+    await expect(page.getByLabel('Tiêu đề nội bộ')).toBeEnabled();
+    await expect(page.getByText('Phiên bản 5')).toBeVisible();
     await page.getByRole('link', { name: 'Danh sách bài viết' }).click();
     await expect(page).toHaveURL(/\/posts$/);
     await expect(
@@ -189,6 +217,30 @@ test('post draft lifecycle keeps filters in the URL', async ({ page }) => {
     await page.getByRole('button', { name: 'Xóa pixel.png' }).click();
     await page.getByRole('button', { name: 'Xóa media' }).click();
     await expect(page.getByRole('heading', { name: 'Chưa có media' })).toBeVisible();
+    await page.goto('/accounts');
+    await expect(
+      page.getByRole('button', { name: 'Kết nối Meta', exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole('heading', { name: 'Kết nối Meta chưa được kích hoạt' }),
+    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Test Facebook' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Thêm tài khoản', exact: true }),
+    ).toHaveCount(0);
+    await page.getByRole('button', { name: 'Tạm dừng', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: 'Bật tài khoản', exact: true }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Bật tài khoản', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: 'Tạm dừng', exact: true }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Ngắt kết nối', exact: true }).click();
+    await page
+      .getByRole('button', { name: 'Xác nhận ngắt kết nối', exact: true })
+      .click();
+    await expect(page.getByText('FACEBOOK · Đã ngắt kết nối')).toBeVisible();
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth,

@@ -33,6 +33,7 @@ model Workspace {
   channels  Channel[]
   posts     Post[]
   media     MediaAsset[]
+  metaOAuth MetaOAuth[]
 }
 
 enum Platform {
@@ -46,11 +47,15 @@ model Channel {
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   platform    Platform
   name        String
-  isMock      Boolean   @default(true)
+  isMock      Boolean   @default(false)
+  externalId  String?
+  credential  ChannelCredential?
+  isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   posts       Post[]
 
-  @@unique([workspaceId, platform])
+  @@index([workspaceId, platform])
+  @@unique([workspaceId, platform, externalId])
 }
 
 enum PostStatus {
@@ -77,6 +82,7 @@ model Post {
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
   media           PostMedia[]
+  attempts        PublishAttempt[]
 
   @@unique([workspaceId, clientRequestId])
   @@index([workspaceId, status])
@@ -139,4 +145,42 @@ model OAuthAttempt {
   expiresAt DateTime
 
   @@index([expiresAt])
+}
+
+model PublishAttempt {
+  id String @id @default(cuid())
+  postId String
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  scheduleVersion Int
+  status String
+  startedAt DateTime @default(now())
+  finishedAt DateTime?
+  leaseExpiresAt DateTime
+  dispatchStartedAt DateTime?
+  errorCode String?
+  errorMessage String?
+  externalPostId String?
+  @@unique([postId, scheduleVersion])
+  @@index([status, leaseExpiresAt])
+}
+
+model ChannelCredential {
+  channelId String @id
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  encryptedToken String
+  pageId String
+  expiresAt DateTime?
+  connectedAt DateTime @default(now())
+}
+
+model MetaOAuth {
+  stateHash String @id
+  workspaceId String
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  sessionHash String
+  consumedAt DateTime?
+  payload String?
+  expiresAt DateTime
+  @@index([expiresAt])
+  @@index([sessionHash])
 }

@@ -1,3 +1,5 @@
+> Cập nhật 23/09/2026: luồng kết nối và publisher đã chuyển sang Meta thật; tài khoản mẫu không còn được tạo hoặc xử lý bởi worker. Cần Meta App, HTTPS và kiểm thử live. Xem [META_SETUP.md](META_SETUP.md) để cấu hình và biết giới hạn hiện tại.
+
 # SocialFlow — Yêu cầu MVP v1
 
 Ngày chốt: 21/09/2026. Tài liệu dùng để triển khai và nghiệm thu, không phải báo cáo các tính năng đã hoàn thành.
@@ -6,9 +8,9 @@ Xem [Tổng quan dự án](./PROJECT_OVERVIEW.md) để biết mục tiêu, ki�
 
 ## 1. Phạm vi
 
-Một user sở hữu một workspace, hai kênh mô phỏng Facebook/Instagram. Mỗi bài đăng thuộc một kênh, gồm văn bản và tối đa 4 ảnh. Có login, CRUD nháp, upload, preview, scheduling, lịch nội dung, dashboard và kết quả xuất bản mô phỏng.
+Một user sở hữu một workspace và có thể kết nối nhiều Facebook Page/Instagram Professional. Mỗi bài đăng thuộc một kênh, gồm văn bản và tối đa 4 ảnh. Có login, CRUD nháp, upload, preview, scheduling, lịch nội dung, dashboard và kết quả xuất bản qua Meta Graph API.
 
-Không tích hợp social API thật, video, đa thành viên/phân quyền nhóm, duyệt bài, AI, billing, đa ngôn ngữ, dark mode hoặc autosave trong MVP. Các giới hạn nội dung bên dưới là quy tắc của demo, không phải giới hạn chính thức của nền tảng social.
+Không hỗ trợ video, đa thành viên/phân quyền nhóm, duyệt bài, AI, billing, đa ngôn ngữ, dark mode hoặc autosave trong MVP. Các giới hạn nội dung bên dưới là quy tắc của ứng dụng, không phải giới hạn chính thức của nền tảng social.
 
 ## 2. Yêu cầu theo màn hình
 
@@ -117,16 +119,18 @@ stateDiagram-v2
 - Đổi/hủy lịch đồng thời với worker: chỉ một thao tác thắng, thao tác còn lại nhận conflict.
 - Retry request hoặc nhấn nút lặp không được tạo nhiều job cho cùng một phiên bản lịch. UI disable chỉ hỗ trợ UX; backend vẫn phải chống trùng.
 
+**Trạng thái Schedule:** Đã có lên lịch, đổi/hủy lịch ở chi tiết bài viết; API kiểm tra giờ server, nội dung, ảnh Instagram, quyền workspace và version. Ngày giờ nhập theo UTC+7 và lưu UTC. Worker gọi Meta thật đã triển khai với lease và lịch sử. Chủ workspace được Đăng ngay hoặc Lên lịch, không có bước duyệt.
+
 ### PUBLISH-01 — Worker và kết quả
 
 - Worker chạy như tiến trình độc lập trong `apps/api`; đóng browser không làm dừng job.
-- Kiểm tra bài đến hạn khoảng 15 giây/lần; không cam kết đăng chính xác từng giây.
+- Kiểm tra bài đến hạn khoảng 3 giây/lần; không cam kết đăng chính xác từng giây.
 - Nhận bài bằng điều kiện trạng thái/version và chuyển `PUBLISHING` trước khi xử lý.
 - Gọi MockPublisher rồi ghi kết quả, thời gian hoàn tất và PublishAttempt.
 - Thất bại lưu error code/message có ích cho người dùng, không lộ secret hoặc stack trace.
 - Có thời hạn xử lý/lease. Attempt hết hạn chuyển FAILED để retry; worker cũ không được ghi đè kết quả attempt mới sau khi mất lease.
 - Seed một kịch bản lỗi cố định: lần đầu thất bại, lần retry thành công. Không dựa vào random để kiểm thử.
-- UI hiển thị “Kênh mô phỏng” và “Đăng mô phỏng thành công”.
+- UI hiển thị tài khoản Meta đã kết nối, trạng thái đăng thật và mã bài do Meta trả về.
 - FE polling khoảng 5 giây khi có bài đang xử lý hoặc bài lên lịch cần cập nhật; dừng khi không có việc cần theo dõi, đồng bộ lại khi quay về tab.
 
 **Nghiệm thu:** đóng browser, chờ đến hạn rồi mở lại vẫn có kết quả; một lịch không có hai kết quả xuất bản thành công; attempt timeout không kẹt mãi; người dùng xem được lịch sử lỗi và retry.
@@ -136,7 +140,7 @@ stateDiagram-v2
 - Desktop hiển thị lịch tháng; mobile hiển thị danh sách theo ngày.
 - Filter theo kênh; tháng và filter lưu trong URL.
 - Hiển thị bài có lịch theo ngày, phân biệt trạng thái; nháp chưa có lịch không xuất hiện.
-- Click thẻ mở chi tiết. Chỉ kéo thả bài SCHEDULED để đổi ngày, giữ giờ theo múi giờ workspace.
+- Click thẻ mở chi tiết. Đổi lịch trong trang chi tiết bài; kéo thả lịch là cải tiến tiếp theo.
 - Có form đổi ngày/giờ dùng được bằng bàn phím và mobile.
 - Đổi lịch dùng optimistic update; API lỗi phải rollback, thông báo và refetch dữ liệu chuẩn.
 
@@ -144,32 +148,38 @@ stateDiagram-v2
 
 ## 3. API mục tiêu
 
-Đây là hợp đồng API của backend NestJS. Các endpoint từ auth, CRUD Post, media local đến dashboard đã được triển khai; scheduling, attempts và calendar vẫn là hợp đồng mục tiêu. Base path: `/api`.
+Đây là hợp đồng API của backend NestJS. Các endpoint từ auth, CRUD Post, media local đến dashboard đã được triển khai; scheduling, calendar và lịch sử attempt (trong chi tiết bài) đã triển khai. Base path: `/api`.
 
-| Method / route                  | Trách nhiệm                         |
-| ------------------------------- | ----------------------------------- |
-| GET `/auth/google`              | Bắt đầu OAuth                       |
-| GET `/auth/google/callback`     | Xử lý callback và tạo session       |
-| GET `/auth/me`                  | User/workspace của phiên hiện tại   |
-| POST `/auth/logout`             | Đăng xuất                           |
-| GET `/channels`                 | Hai kênh của workspace              |
-| GET `/posts`                    | Search/filter/sort/pagination       |
-| POST `/posts`                   | Tạo nháp                            |
-| GET `/posts/:id`                | Chi tiết                            |
-| PATCH `/posts/:id`              | Sửa với expected version            |
-| DELETE `/posts/:id`             | Xóa nháp với kiểm tra version       |
-| POST `/posts/:id/schedule`      | Lên lịch nháp hoặc retry bài lỗi    |
-| PATCH `/posts/:id/schedule`     | Đổi lịch với expected version       |
-| DELETE `/posts/:id/schedule`    | Hủy lịch với expected version       |
-| GET `/posts/:id/attempts`       | Lịch sử xuất bản                    |
-| GET `/calendar?from=...&to=...` | Bài trong khoảng thời gian          |
-| GET `/dashboard`                | Thống kê                            |
-| POST `/media/upload-url`        | Tạo pending asset và cấp signed URL |
-| PUT `/media/:id/upload`         | Upload file qua token có hạn        |
-| POST `/media/:id/complete`      | Xác nhận upload                     |
-| GET `/media/:id/content`        | Đọc ảnh thuộc workspace             |
-| DELETE `/media/:id`             | Xóa asset chưa gắn vào bài          |
-| GET `/media`                    | Thư viện và thống kê quota          |
+| Method / route                   | Trách nhiệm                          |
+| -------------------------------- | ------------------------------------ |
+| GET `/auth/google`               | Bắt đầu OAuth                        |
+| GET `/auth/google/callback`      | Xử lý callback và tạo session        |
+| GET `/auth/me`                   | User/workspace của phiên hiện tại    |
+| POST `/auth/logout`              | Đăng xuất                            |
+| GET `/channels`                  | Danh sách tài khoản của workspace    |
+| POST `/connections/meta/start`   | Bắt đầu kết nối Meta                 |
+| GET `/connections/meta/callback` | Nhận kết quả OAuth                   |
+| GET `/connections/meta/pending`  | Danh sách tài khoản được cấp quyền   |
+| POST `/connections/meta/connect` | Chọn tài khoản kết nối               |
+| DELETE `/connections/meta/:id`   | Ngắt kết nối                         |
+| PATCH `/channels/:id`            | Bật hoặc tạm dừng tài khoản          |
+| GET `/posts`                     | Search/filter/sort/pagination        |
+| POST `/posts`                    | Tạo nháp                             |
+| GET `/posts/:id`                 | Chi tiết và 20 lần xuất bản gần nhất |
+| PATCH `/posts/:id`               | Sửa với expected version             |
+| DELETE `/posts/:id`              | Xóa nháp với kiểm tra version        |
+| POST `/posts/:id/publish`        | Đăng ngay hoặc thử lại bài lỗi       |
+| POST `/posts/:id/schedule`       | Lên lịch nháp hoặc retry bài lỗi     |
+| PATCH `/posts/:id/schedule`      | Đổi lịch với expected version        |
+| DELETE `/posts/:id/schedule`     | Hủy lịch với expected version        |
+| GET `/calendar?from=...&to=...`  | Bài trong khoảng thời gian           |
+| GET `/dashboard`                 | Thống kê                             |
+| POST `/media/upload-url`         | Tạo pending asset và cấp signed URL  |
+| PUT `/media/:id/upload`          | Upload file qua token có hạn         |
+| POST `/media/:id/complete`       | Xác nhận upload                      |
+| GET `/media/:id/content`         | Đọc ảnh thuộc workspace              |
+| DELETE `/media/:id`              | Xóa asset chưa gắn vào bài           |
+| GET `/media`                     | Thư viện và thống kê quota           |
 
 Quy ước:
 
@@ -230,7 +240,7 @@ Các ô dưới đây chỉ được đánh dấu khi có bằng chứng kiểm 
 - [ ] Dashboard khớp dữ liệu sau các mutation.
 - [ ] Luồng tạo bài và đổi lịch dùng được ở 375 px và bằng bàn phím.
 - [ ] Build và các kiểm tra CI qua; có test cho luồng thành công và lỗi quan trọng.
-- [ ] Demo ghi rõ phần mô phỏng, có README và video demo.
+- [ ] Demo ghi rõ tình trạng kết nối Meta, có README và video demo.
 
 ## 7. Kịch bản demo nghiệm thu
 

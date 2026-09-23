@@ -34,4 +34,4 @@ run(
   process.cwd() + '/apps/api',
 );
 if (!process.argv.includes('--prepare-only'))
-  run(['--test', 'apps/api/test/auth.test.cjs']);
+  run(['--test', 'apps/api/test/auth.test.cjs', 'apps/api/test/meta.test.cjs']);

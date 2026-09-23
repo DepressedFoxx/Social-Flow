@@ -1,3 +1,5 @@
+> Cập nhật 23/09/2026: luồng kết nối và publisher đã chuyển sang Meta thật; tài khoản mẫu không còn được tạo hoặc xử lý bởi worker. Cần Meta App, HTTPS và kiểm thử live. Xem [META_SETUP.md](META_SETUP.md) để cấu hình và biết giới hạn hiện tại.
+
 # SocialFlow — Tổng quan dự án
 
 Ngày chốt tài liệu: 21/09/2026. Phạm vi: MVP v1.
@@ -10,7 +12,7 @@ SocialFlow là ứng dụng quản lý và lên lịch nội dung dành cho ngư
 
 Luồng chính:
 
-**Đăng nhập → tạo bài → upload ảnh → xem trước → lên lịch → backend mô phỏng đăng → xem kết quả hoặc thử lại.**
+**Đăng nhập → tạo bài → upload ảnh → xem trước → lên lịch → worker gửi bài lên Meta → xem kết quả hoặc thử lại.**
 
 MVP có một chủ sở hữu cho mỗi workspace. Bối cảnh sử dụng là nhóm marketing, nhưng cộng tác nhiều thành viên và phân quyền nhóm thuộc giai đoạn sau.
 
@@ -19,19 +21,19 @@ MVP có một chủ sở hữu cho mỗi workspace. Bối cảnh sử dụng là
 | Nội dung  | MVP v1                                                                                    |
 | --------- | ----------------------------------------------------------------------------------------- |
 | Workspace | Tự tạo một workspace riêng cho mỗi người dùng khi đăng nhập lần đầu                       |
-| Kênh      | Hai kênh mẫu Facebook và Instagram, gắn nhãn mô phỏng                                     |
+| Kênh      | Facebook Page và Instagram Professional kết nối qua Meta OAuth                            |
 | Bài viết  | Một bài thuộc một kênh; văn bản và tối đa 4 ảnh                                           |
 | Quản lý   | CRUD nháp, tìm kiếm, lọc, sắp xếp, phân trang phía server                                 |
 | Lịch      | Lịch tháng trên desktop, danh sách theo ngày trên mobile, đổi lịch bằng form hoặc kéo thả |
-| Xuất bản  | Worker chạy độc lập, publisher mô phỏng, lưu kết quả và lịch sử                           |
+| Xuất bản  | Worker chạy độc lập, publisher Meta Graph API, lưu kết quả và lịch sử                     |
 | Dashboard | Thống kê trạng thái và 5 bài sắp đăng từ dữ liệu thật trong database                      |
 | Giao diện | Tiếng Việt, hỗ trợ desktop/mobile và bàn phím                                             |
 
 Làm thật: authentication, database, upload, CRUD, scheduling, xử lý job và lưu kết quả.
 
-Mô phỏng: kết nối tài khoản mạng xã hội và việc đăng nội dung lên nền tảng. Không tạo bài đăng Facebook/Instagram thật; không hiển thị số liệu reach/engagement giả như số liệu thực.
+Kết nối và đăng bài dùng Meta Graph API khi App/HTTPS đã cấu hình. Chưa kiểm thử live do thiếu Meta App và domain; không hiển thị số liệu reach/engagement giả.
 
-Ngoài MVP: social API thật, TikTok, video, đăng nhiều kênh trong cùng một bài, nhiều thành viên/role, duyệt bài, AI, billing, notification center, dark mode, i18n, autosave và realtime qua WebSocket/SSE.
+Ngoài MVP: TikTok, video, đăng nhiều kênh trong cùng một bài, nhiều thành viên/role, duyệt bài, AI, billing, notification center, dark mode, i18n, autosave và realtime qua WebSocket/SSE.
 
 ## 3. Kiến trúc đã chốt
 
@@ -105,7 +107,7 @@ POST-02 và MEDIA-01 đã hỗ trợ tối đa bốn ảnh JPEG/PNG/WebP, giới
 
 Trang `/media` quản lý thư viện và tổng dung lượng theo workspace. Mỗi workspace lưu `planCode` và `mediaQuotaBytes`; gói Personal hiện mặc định 250 MB. API tính cả dung lượng đã dùng và phần giữ chỗ của upload pending, đồng thời khóa workspace khi cấp upload để không vượt quota do request song song. Billing và bảng giá chưa thuộc phạm vi hiện tại.
 
-Chưa có: calendar, scheduling và worker/publisher. Các test hiện có xác minh auth/session, ownership, dashboard, CRUD Post, idempotency, conflict, upload media, bộ lọc URL và chiều rộng desktop/mobile.
+Đã có kết nối Meta, lịch tháng, lên lịch/đăng ngay, worker gọi Meta và lịch sử attempt. Cần App/HTTPS để kiểm thử live; chưa có kéo thả đổi lịch. Các test hiện có xác minh auth/session, ownership, dashboard, CRUD Post, idempotency, conflict, upload media, bộ lọc URL và chiều rộng desktop/mobile.
 
 ## 6. Thứ tự xây dựng
 
@@ -125,5 +127,5 @@ Chưa có: calendar, scheduling và worker/publisher. Các test hiện có xác 
 - Demo online, repository có hướng dẫn setup, env mẫu và migration.
 - FE, API và worker được triển khai với cấu hình môi trường riêng; lựa chọn hosting chưa chốt.
 - Video demo 3–5 phút: tạo bài, đổi lịch, lỗi xuất bản, thử lại và mobile.
-- Case study giải thích state, concurrency, kiểm thử và phần mô phỏng.
+- Case study giải thích state, concurrency, kiểm thử và giới hạn tích hợp Meta.
 - Hoàn thành tiêu chí trong [Yêu cầu MVP](./MVP_REQUIREMENTS.md).

@@ -25,6 +25,8 @@ import { dashboardKey } from '@/features/dashboard/types';
 import { ApiError, apiGet, apiRequest } from '@/lib/api-client';
 import { surfaceVariants } from '@/styles/variants';
 import { existingMedia, MediaUploader, type EditorMedia } from './media-uploader';
+import { accountsKey, type Account } from '@/features/accounts/accounts-manager';
+import { PostSchedule } from './post-schedule';
 import { postsKey, type PostItem } from './types';
 
 const schema = z.object({
@@ -34,17 +36,22 @@ const schema = z.object({
     .min(1, 'Vui lòng nhập tiêu đề.')
     .max(100, 'Tiêu đề tối đa 100 ký tự.'),
   content: z.string().max(2000, 'Nội dung tối đa 2.000 ký tự.'),
-  channelId: z.string().min(1, 'Vui lòng chọn kênh.'),
+  channelId: z.string().min(1, 'Vui lòng chọn tài khoản đăng.'),
 });
 type Fields = z.infer<typeof schema>;
 
 export function PostEditor({
-  channels,
+  channels: initialChannels,
   postId,
 }: {
   channels: AuthSession['workspace']['channels'];
   postId?: string;
 }) {
+  const accounts = useQuery({
+    queryKey: accountsKey,
+    queryFn: ({ signal }) => apiGet<Account[]>('/channels', signal),
+  });
+  const channels = accounts.data ?? initialChannels;
   const router = useRouter();
   const client = useQueryClient();
   const [clientRequestId] = useState(() => crypto.randomUUID());
@@ -56,6 +63,10 @@ export function PostEditor({
     queryFn: ({ signal }) => apiGet<PostItem>('/posts/' + postId, signal),
     enabled: Boolean(postId),
     retry: false,
+    refetchInterval: (query) =>
+      query.state.data && ['SCHEDULED', 'PUBLISHING'].includes(query.state.data.status)
+        ? 5000
+        : false,
   });
   const {
     register,
@@ -65,7 +76,7 @@ export function PostEditor({
     formState: { errors, isDirty },
   } = useForm<Fields>({
     resolver: zodResolver(schema),
-    defaultValues: { title: '', content: '', channelId: channels[0]?.id ?? '' },
+    defaultValues: { title: '', content: '', channelId: '' },
   });
 
   useEffect(() => {
@@ -148,7 +159,7 @@ export function PostEditor({
   const content = useWatch({ control, name: 'content' });
   const channelId = useWatch({ control, name: 'channelId' });
   const channel = channels.find((item) => item.id === channelId);
-  const editable = !detail.data || detail.data.status === 'DRAFT';
+  const editable = !detail.data || ['DRAFT', 'FAILED'].includes(detail.data.status);
 
   if (postId && detail.isPending)
     return (
@@ -210,7 +221,7 @@ export function PostEditor({
           role="status"
           className="mb-5 rounded-lg bg-warning-subtle p-3 text-sm text-warning"
         >
-          Chỉ bản nháp mới có thể chỉnh sửa.
+          Hủy lịch trước khi sửa nội dung. Bài đang xử lý hoặc đã đăng chỉ có thể xem.
         </p>
       )}
       <form onSubmit={handleSubmit((values) => save.mutate(values))} noValidate>
@@ -243,14 +254,25 @@ export function PostEditor({
                 )}
               </div>
               <div>
-                <Label id="post-channel-label">Kênh đăng</Label>
+                <Label id="post-channel-label">Tài khoản đăng</Label>
+                {!channels.some((item) => item.isActive && !item.isMock) && (
+                  <p className="mt-2 text-sm text-warning">
+                    Bạn chưa có tài khoản sẵn sàng.{' '}
+                    <Link className="underline" href="/accounts">
+                      Kết nối tài khoản Meta
+                    </Link>{' '}
+                    trước khi lưu bài.
+                  </p>
+                )}
                 <Controller
                   control={control}
                   name="channelId"
                   render={({ field }) => (
                     <Select
                       value={field.value}
-                      onValueChange={field.onChange}
+                      onValueChange={(value) => {
+                        if (value) field.onChange(value);
+                      }}
                       disabled={!editable || save.isPending}
                     >
                       <SelectTrigger
@@ -259,13 +281,19 @@ export function PostEditor({
                         aria-invalid={Boolean(errors.channelId)}
                         className="mt-2 h-control w-full bg-card"
                       >
-                        <SelectValue placeholder="Chọn kênh" />
+                        <SelectValue placeholder="Chọn tài khoản / Page" />
                       </SelectTrigger>
                       <SelectContent>
                         {channels.map((item) => (
-                          <SelectItem key={item.id} value={item.id}>
+                          <SelectItem
+                            key={item.id}
+                            value={item.id}
+                            disabled={!item.isActive || item.isMock}
+                          >
                             {item.name} ·{' '}
-                            {item.platform === 'FACEBOOK' ? 'Facebook' : 'Instagram'}
+                            {item.platform === 'FACEBOOK' ? 'Facebook' : 'Instagram'} ·{' '}
+                            {item.isMock ? 'Mẫu cũ — không thể đăng' : 'Đã kết nối Meta'}
+                            {!item.isActive ? ' · Tạm dừng' : ''}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -322,7 +350,7 @@ export function PostEditor({
                   </span>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">
-                      {channel?.name ?? 'Chưa chọn kênh'}
+                      {channel?.name ?? 'Chưa chọn tài khoản'}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       Bản xem trước mô phỏng
@@ -386,6 +414,11 @@ export function PostEditor({
                 </p>
               )}
             </section>
+            <PostSchedule
+              key={detail.data?.version ?? 'new'}
+              post={detail.data}
+              blocked={dirty || mediaPending || save.isPending}
+            />
           </aside>
         </div>
       </form>

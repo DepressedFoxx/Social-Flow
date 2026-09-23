@@ -11,7 +11,13 @@ export type SessionView = {
     id: string;
     name: string;
     timezone: string;
-    channels: { id: string; name: string; platform: string; isMock: boolean }[];
+    channels: {
+      id: string;
+      name: string;
+      platform: string;
+      isMock: boolean;
+      isActive: boolean;
+    }[];
   };
   expiresAt: string;
   csrfToken: string;

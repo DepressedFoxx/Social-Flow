@@ -15,8 +15,18 @@ export type PostItem = {
     name: string;
     platform: 'FACEBOOK' | 'INSTAGRAM';
     isMock: boolean;
+    isActive: boolean;
   };
   media: PostMedia[];
+  attempts: {
+    id: string;
+    status: string;
+    startedAt: string;
+    finishedAt: string | null;
+    errorCode: string | null;
+    errorMessage: string | null;
+    externalPostId: string | null;
+  }[];
 };
 
 export type PostMedia = {

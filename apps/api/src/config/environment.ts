@@ -14,6 +14,31 @@ const schema = z.object({
     .default(
       'postgresql://socialflow:socialflow_local@localhost:55432/socialflow?schema=public',
     ),
+  META_APP_ID: z.string().regex(/^\d*$/).default(''),
+  META_ENABLE_INSTAGRAM: z.enum(['true', 'false']).default('false'),
+  META_LOGIN_CONFIG_ID: z.string().regex(/^\d*$/).default(''),
+  META_APP_SECRET: z.string().default(''),
+  META_CALLBACK_URL: z.union([z.literal(''), z.url()]).default(''),
+  META_GRAPH_VERSION: z
+    .string()
+    .regex(/^v\d+\.0$/)
+    .default('v25.0'),
+  META_TOKEN_ENCRYPTION_KEY: z
+    .string()
+    .refine(
+      (value) => !value || Buffer.from(value, 'base64').length === 32,
+      'Expected a 32-byte base64 encryption key',
+    )
+    .default(''),
+  META_PUBLIC_API_ORIGIN: z
+    .union([
+      z.literal(''),
+      origin.refine(
+        (value) => value.startsWith('https://'),
+        'Public media requires HTTPS',
+      ),
+    ])
+    .default(''),
   GOOGLE_CLIENT_ID: z.string().default(''),
   GOOGLE_CLIENT_SECRET: z.string().default(''),
   GOOGLE_CALLBACK_URL: z.url().default('http://localhost:4000/api/auth/google/callback'),

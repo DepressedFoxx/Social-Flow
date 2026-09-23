@@ -4,7 +4,13 @@ export type AuthSession = {
     id: string;
     name: string;
     timezone: string;
-    channels: { id: string; name: string; platform: string; isMock: boolean }[];
+    channels: {
+      id: string;
+      name: string;
+      platform: string;
+      isMock: boolean;
+      isActive: boolean;
+    }[];
   };
   csrfToken: string;
   expiresAt: string;

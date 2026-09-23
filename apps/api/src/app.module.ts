@@ -1,3 +1,4 @@
+import { MetaModule } from './modules/meta/meta.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
@@ -16,6 +17,7 @@ import { MediaModule } from './modules/media/media.module';
     DashboardModule,
     PostsModule,
     MediaModule,
+    MetaModule,
   ],
 })
 export class AppModule {}

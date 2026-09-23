@@ -61,12 +61,6 @@ export class AuthService {
     return {
       create: {
         name: name + ' workspace',
-        channels: {
-          create: [
-            { platform: 'FACEBOOK' as const, name: 'Facebook mẫu' },
-            { platform: 'INSTAGRAM' as const, name: 'Instagram mẫu' },
-          ],
-        },
       },
     };
   }
@@ -147,7 +141,11 @@ export class AuthService {
       include: {
         user: {
           include: {
-            workspace: { include: { channels: { orderBy: { platform: 'asc' } } } },
+            workspace: {
+              include: {
+                channels: { where: { isMock: false }, orderBy: { platform: 'asc' } },
+              },
+            },
           },
         },
       },
@@ -162,11 +160,12 @@ export class AuthService {
         id: workspace.id,
         name: workspace.name,
         timezone: workspace.timezone,
-        channels: workspace.channels.map(({ id, name, platform, isMock }) => ({
+        channels: workspace.channels.map(({ id, name, platform, isMock, isActive }) => ({
           id,
           name,
           platform,
           isMock,
+          isActive,
         })),
       },
       expiresAt: session.expiresAt.toISOString(),

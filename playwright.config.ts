@@ -6,7 +6,7 @@ export default defineConfig({
   testDir: './tests/e2e',
   workers: 1,
   fullyParallel: false,
-  timeout: 60000,
+  timeout: 90000,
   forbidOnly: !!process.env.CI,
   retries: 0,
   reporter: 'list',
@@ -23,6 +23,9 @@ export default defineConfig({
       command: 'npm run start --workspace=@social-flow/api',
       env: {
         NODE_ENV: 'test',
+        META_APP_ID: '',
+        META_APP_SECRET: '',
+        META_PUBLIC_API_ORIGIN: 'https://api.example.test',
         PORT: '4018',
         WEB_ORIGIN: 'http://localhost:3017',
         DATABASE_URL: database,
@@ -32,7 +35,7 @@ export default defineConfig({
       },
       url: 'http://localhost:4018/api/health',
       reuseExistingServer: false,
-      timeout: 60000,
+      timeout: 90000,
     },
     {
       command: 'npm exec --workspace=@social-flow/web -- next dev --port 3017',

@@ -11,6 +11,7 @@
   },
   "scripts": {
     "dev": "concurrently -k -n WEB,API -c cyan,green \"npm run dev:web\" \"npm run dev:api\"",
+    "worker": "npm run worker --workspace=@social-flow/api",
     "dev:web": "npm run dev --workspace=@social-flow/web",
     "dev:api": "npm run dev --workspace=@social-flow/api",
     "build": "npm run build --workspaces",
@@ -28,7 +29,8 @@
     "test": "npm run test --workspace=@social-flow/web",
     "test:e2e": "npm run build --workspace=@social-flow/api && node scripts/test-auth.mjs --prepare-only && playwright test",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build",
-    "test:api": "npm run build --workspace=@social-flow/api && node scripts/test-auth.mjs"
+    "test:api": "npm run build --workspace=@social-flow/api && node scripts/test-auth.mjs",
+    "meta:key": "node scripts/setup-meta-key.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.0",

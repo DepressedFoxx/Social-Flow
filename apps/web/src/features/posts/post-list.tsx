@@ -63,6 +63,7 @@ function formatDate(value: string | null) {
   return new Intl.DateTimeFormat('vi-VN', {
     dateStyle: 'short',
     timeStyle: 'short',
+    timeZone: 'Asia/Ho_Chi_Minh',
   }).format(new Date(value));
 }
 
@@ -112,6 +113,10 @@ export function PostList({
     queryFn: ({ signal }) =>
       apiGet<PostListData>('/posts' + (queryString ? '?' + queryString : ''), signal),
     retry: false,
+    refetchInterval: (query) =>
+      query.state.data?.items.some((p) => ['SCHEDULED', 'PUBLISHING'].includes(p.status))
+        ? 5000
+        : false,
   });
 
   const update = useCallback(
@@ -233,7 +238,7 @@ export function PostList({
           </div>
           <div>
             <Label id="channel-filter-label" className="sr-only">
-              Lọc kênh
+              Lọc tài khoản
             </Label>
             <Select
               value={initialFilters.channel || 'all'}
@@ -245,10 +250,10 @@ export function PostList({
                 aria-labelledby="channel-filter-label"
                 className="h-control w-full bg-card md:w-44"
               >
-                <SelectValue placeholder="Mọi kênh" />
+                <SelectValue placeholder="Mọi tài khoản" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Mọi kênh</SelectItem>
+                <SelectItem value="all">Mọi tài khoản</SelectItem>
                 {channels.map((channel) => (
                   <SelectItem key={channel.id} value={channel.id}>
                     {channel.name}
@@ -340,9 +345,9 @@ export function PostList({
               <TableHeader className="bg-muted text-xs text-muted-foreground">
                 <TableRow>
                   <TableHead className="px-4 py-3">Bài viết</TableHead>
-                  <TableHead className="px-4 py-3">Kênh</TableHead>
+                  <TableHead className="px-4 py-3">Tài khoản đăng</TableHead>
                   <TableHead className="px-4 py-3">Trạng thái</TableHead>
-                  <TableHead className="px-4 py-3">Lịch đăng</TableHead>
+                  <TableHead className="px-4 py-3">Lịch đăng (UTC+7)</TableHead>
                   <TableHead className="px-4 py-3">Cập nhật</TableHead>
                   <TableHead className="w-24 px-4 py-3">
                     <span className="sr-only">Thao tác</span>
@@ -448,6 +453,11 @@ export function PostList({
                   </div>
                   <StatusBadge status={post.status} />
                 </div>
+                {post.scheduledAt && (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Lịch đăng: {formatDate(post.scheduledAt)} · UTC+7
+                  </p>
+                )}
                 <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
                   <p className="text-xs text-muted-foreground">
                     Cập nhật {formatDate(post.updatedAt)}
